@@ -41,7 +41,11 @@ export const createPaymentSession = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ message: "Failed to create payment session" });
+    console.error("Create payment session error:", error);
+    return res.status(500).json({
+      message: "Failed to create payment session",
+      error: error?.message || "Unknown error",
+    });
   }
 };
 
