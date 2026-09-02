@@ -1,11 +1,40 @@
 import mongoose from "mongoose";
 import question from "../models/question.js";
-
+import Subscription from "../models/subscription.js";
+import { getPlanByKey } from "../config/plans.js";
 
 export const Askquestion = async (req, res) => {
   const { postquestiondata } = req.body;
-  const postques = new question({ ...postquestiondata });
+
   try {
+    const subscription = await Subscription.findOne({
+      userId: req.userid,
+      status: "active",
+    }).sort({ createdAt: -1 });
+    const subscriptionIsCurrent =
+      subscription?.currentPeriodEnd && subscription.currentPeriodEnd > new Date();
+    const planKey = subscriptionIsCurrent ? subscription.plan : "free";
+    const plan = getPlanByKey(planKey);
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const questionsUsed = await question.countDocuments({
+      userid: String(req.userid),
+      askedon: { $gte: startOfToday },
+    });
+
+    if (Number.isFinite(plan.dailyQuestionLimit) && questionsUsed >= plan.dailyQuestionLimit) {
+      return res.status(429).json({
+        message: "Daily question limit reached",
+        plan: planKey,
+        limit: plan.dailyQuestionLimit,
+        used: questionsUsed,
+      });
+    }
+
+    const postques = new question({
+      ...postquestiondata,
+      userid: String(req.userid),
+    });
     await postques.save();
     res.status(200).json({ data: postques });
   } catch (error) {
