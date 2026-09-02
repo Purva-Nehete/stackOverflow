@@ -9,7 +9,15 @@ import subscriptionroutes from "./routes/subscription.js";
 import paymentroutes from "./routes/payment.js";
 
 const app = express();
-app.use(express.json({ limit: "30mb", extended: true }));
+app.use(
+  express.json({
+    limit: "30mb",
+    extended: true,
+    verify: (req, res, buffer) => {
+      req.rawBody = Buffer.from(buffer);
+    },
+  })
+);
 app.use(express.urlencoded({ limit: "30mb", extended: true }));
 app.use(cors());
 

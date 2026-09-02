@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import Payment from "../models/payment.js";
+import Subscription from "../models/subscription.js";
 import WebhookEvent from "../models/webhookEvent.js";
-import User from "../models/auth.js";
 import { createRazorpayOrder, createRazorpaySubscription } from "../services/razorpay.js";
 
 export const createPaymentSession = async (req, res) => {
@@ -30,6 +30,10 @@ export const createPaymentSession = async (req, res) => {
       amount,
       currency: "INR",
       receipt: `${user._id}-${Date.now()}`,
+      notes: {
+        userId: user._id.toString(),
+        plan,
+      },
     });
 
     return res.status(200).json({
@@ -62,6 +66,7 @@ export const createSubscriptionCheckout = async (req, res) => {
     const subscription = await createRazorpaySubscription({
       plan,
       customerEmail: user.email,
+      userId: user._id,
     });
 
     return res.status(200).json({ data: subscription });
@@ -89,15 +94,33 @@ export const verifyPayment = async (req, res) => {
 export const handleWebhook = async (req, res) => {
   const signature = req.headers["x-razorpay-signature"];
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-  const hmac = crypto.createHmac("sha256", secret);
-  const digest = hmac.update(JSON.stringify(req.body)).digest("hex");
+  const rawBody = req.rawBody || req.body;
 
-  if (digest !== signature) {
+  if (!signature || !secret || !rawBody) {
+    return res.status(400).json({ message: "Webhook signature data is missing" });
+  }
+
+  const digest = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+
+  if (
+    digest.length !== signature.length ||
+    !crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(signature))
+  ) {
     return res.status(400).json({ message: "Invalid webhook signature" });
   }
 
-  const event = req.body;
-  const eventId = event?.event_id || `${event?.entity?.id || "razorpay"}-${Date.now()}`;
+  let event;
+  try {
+    event = Buffer.isBuffer(rawBody) ? JSON.parse(rawBody.toString("utf8")) : rawBody;
+  } catch (error) {
+    return res.status(400).json({ message: "Invalid webhook payload" });
+  }
+
+  const eventId = event?.event_id;
+
+  if (!eventId || !event?.event) {
+    return res.status(400).json({ message: "Webhook event id and type are required" });
+  }
 
   const alreadyProcessed = await WebhookEvent.findOne({ eventId });
 
@@ -105,41 +128,93 @@ export const handleWebhook = async (req, res) => {
     return res.status(200).json({ message: "Duplicate webhook ignored" });
   }
 
-  await WebhookEvent.create({
-    eventId,
-    eventType: event?.event,
-    processed: true,
-    processedAt: new Date(),
-  });
-
-  if (event?.event === "subscription.activated") {
-    const subscriptionId = event?.payload?.subscription?.entity?.id;
-    const userId = event?.payload?.subscription?.entity?.notes?.userId;
-
-    if (subscriptionId && userId) {
-      await User.findByIdAndUpdate(userId, {
-        subscriptionPlan: "silver",
-        subscriptionStatus: "active",
-        razorpaySubscriptionId: subscriptionId,
-      });
+  try {
+    await WebhookEvent.create({
+      eventId,
+      eventType: event.event,
+      processed: false,
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(200).json({ message: "Duplicate webhook ignored" });
     }
+    throw error;
   }
 
-  if (event?.event === "payment.captured") {
-    const paymentId = event?.payload?.payment?.entity?.id;
-    const amount = event?.payload?.payment?.entity?.amount;
-    const userId = event?.payload?.payment?.entity?.notes?.userId;
+  const subscriptionEntity = event?.payload?.subscription?.entity;
+  const paymentEntity = event?.payload?.payment?.entity;
+  const orderEntity = event?.payload?.order?.entity;
+  const entity = subscriptionEntity || paymentEntity || orderEntity;
+  const notes = entity?.notes || {};
+  const userId = notes.userId;
+  const plan = notes.plan;
+  const subscriptionId = subscriptionEntity?.id || paymentEntity?.subscription_id;
 
-    if (paymentId && userId) {
-      await Payment.create({
+  if (event.event === "subscription.activated" && subscriptionId && userId && plan) {
+    await Subscription.findOneAndUpdate(
+      { userId },
+      {
         userId,
-        paymentId,
-        amount,
-        status: "paid",
-        paidAt: new Date(),
-      });
+        plan,
+        status: "active",
+        razorpaySubscriptionId: subscriptionId,
+        currentPeriodStart: subscriptionEntity.start_at
+          ? new Date(subscriptionEntity.start_at * 1000)
+          : undefined,
+        currentPeriodEnd: subscriptionEntity.end_at
+          ? new Date(subscriptionEntity.end_at * 1000)
+          : undefined,
+        cancelAtPeriodEnd: false,
+      },
+      { upsert: true, new: true }
+    );
+  }
+
+  if (["subscription.cancelled", "subscription.expired"].includes(event.event) && subscriptionId) {
+    await Subscription.findOneAndUpdate(
+      { razorpaySubscriptionId: subscriptionId },
+      { status: event.event === "subscription.expired" ? "expired" : "cancelled" },
+      { new: true }
+    );
+  }
+
+  if (event.event === "subscription.paused" && subscriptionId) {
+    await Subscription.findOneAndUpdate(
+      { razorpaySubscriptionId: subscriptionId },
+      { status: "past_due" },
+      { new: true }
+    );
+  }
+
+  if (["payment.captured", "payment.failed"].includes(event.event) && paymentEntity?.id && userId && plan) {
+    await Payment.findOneAndUpdate(
+      { paymentId: paymentEntity.id },
+      {
+        userId,
+        plan,
+        paymentId: paymentEntity.id,
+        orderId: paymentEntity.order_id,
+        amount: paymentEntity.amount,
+        currency: paymentEntity.currency || "INR",
+        status: event.event === "payment.captured" ? "paid" : "failed",
+        paidAt: event.event === "payment.captured" ? new Date() : undefined,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    if (event.event === "payment.captured" && subscriptionId) {
+      await Subscription.findOneAndUpdate(
+        { razorpaySubscriptionId: subscriptionId },
+        { status: "active", lastPaymentId: paymentEntity.id },
+        { new: true }
+      );
     }
   }
+
+  await WebhookEvent.updateOne(
+    { eventId },
+    { processed: true, processedAt: new Date() }
+  );
 
   return res.status(200).json({ message: "Webhook processed" });
 };

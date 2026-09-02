@@ -5,15 +5,21 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-export const createRazorpayOrder = async ({ amount, currency = "INR", receipt }) => {
+export const createRazorpayOrder = async ({ amount, currency = "INR", receipt, notes }) => {
   return await razorpay.orders.create({
     amount,
     currency,
     receipt,
+    notes,
   });
 };
 
-export const createRazorpaySubscription = async ({ plan, customerEmail, totalCount = 12 }) => {
+export const createRazorpaySubscription = async ({
+  plan,
+  customerEmail,
+  userId,
+  totalCount = 12,
+}) => {
   const planMap = {
     bronze: "plan_bronze",
     silver: "plan_silver",
@@ -32,6 +38,8 @@ export const createRazorpaySubscription = async ({ plan, customerEmail, totalCou
     customer_notify: 1,
     notes: {
       customerEmail,
+      userId: userId.toString(),
+      plan,
     },
   });
 };
