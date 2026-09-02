@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Payment from "../models/payment.js";
 import Subscription from "../models/subscription.js";
 import WebhookEvent from "../models/webhookEvent.js";
+import User from "../models/auth.js";
 import { createRazorpayOrder, createRazorpaySubscription } from "../services/razorpay.js";
 
 export const createPaymentSession = async (req, res) => {
@@ -48,7 +49,10 @@ export const createPaymentSession = async (req, res) => {
     console.error("Create payment session error:", error);
     return res.status(500).json({
       message: "Failed to create payment session",
-      error: error?.message || "Unknown error",
+      error:
+        error?.message ||
+        error?.error?.description ||
+        "Razorpay order creation failed",
     });
   }
 };

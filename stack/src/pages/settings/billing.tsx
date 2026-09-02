@@ -9,11 +9,26 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
+type Subscription = {
+  plan: string;
+  status: string;
+  currentPeriodEnd?: string;
+  cancelAtPeriodEnd?: boolean;
+};
+
+type Payment = {
+  _id: string;
+  createdAt: string;
+  plan: string;
+  amount?: number;
+  status: string;
+};
+
 const BillingDashboard = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const [subscription, setSubscription] = useState(null);
-  const [payments, setPayments] = useState([]);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

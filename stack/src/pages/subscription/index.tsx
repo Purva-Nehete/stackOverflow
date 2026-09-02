@@ -9,10 +9,39 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
+type Plan = {
+  key: string;
+  name: string;
+  price: number;
+  dailyQuestionLimit: number;
+  badge: string | null;
+  features: Record<string, boolean>;
+};
+
+type RazorpayResponse = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+};
+
+type RazorpayOptions = {
+  key: string | undefined;
+  order_id: string;
+  handler: (response: RazorpayResponse) => void;
+  prefill: { email: string; name: string };
+  theme: { color: string };
+};
+
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => { open: () => void };
+  }
+}
+
 const Subscription = () => {
   const { user } = useAuth();
   const router = useRouter();
-  const [plans, setPlans] = useState([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState("free");
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +74,7 @@ const Subscription = () => {
     }
   };
 
-  const handleUpgrade = async (planKey) => {
+  const handleUpgrade = async (planKey: string) => {
     if (planKey === "free") {
       toast.info("You are already on the Free plan");
       return;
@@ -58,7 +87,7 @@ const Subscription = () => {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
           order_id: res.data.data.order.id,
-          handler: async (response) => {
+          handler: async (response: RazorpayResponse) => {
             try {
               await axiosInstance.post("/payment/verify", {
                 razorpay_order_id: response.razorpay_order_id,
