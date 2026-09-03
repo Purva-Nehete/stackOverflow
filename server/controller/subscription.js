@@ -2,6 +2,8 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import Subscription from "../models/subscription.js";
 import Payment from "../models/payment.js";
+import User from "../models/auth.js";
+import { createRazorpaySubscription } from "../services/razorpay.js";
 import { getPlanList } from "../config/plans.js";
 
 export const getSubscriptionPlans = async (req, res) => {
@@ -39,43 +41,41 @@ export const getMySubscription = async (req, res) => {
 };
 
 export const createOrUpdateSubscription = async (req, res) => {
-  const { plan, status, currentPeriodEnd, razorpaySubscriptionId } = req.body;
+  const { plan } = req.body;
 
-  if (!plan) {
-    return res.status(400).json({ message: "Plan is required" });
+  if (!plan || !["bronze", "silver", "gold"].includes(plan)) {
+    return res.status(400).json({ message: "A paid plan is required" });
   }
 
   try {
-    const subscription = await Subscription.findOneAndUpdate(
-      { userId: req.userid },
-      {
-        userId: req.userid,
-        plan,
-        status: status || "active",
-        currentPeriodEnd,
-        razorpaySubscriptionId,
-        nextBillingDate: currentPeriodEnd,
-      },
-      { upsert: true, new: true }
-    );
+    const user = await User.findById(req.userid).select("name email");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-    return res.status(200).json({ data: subscription });
+    const checkout = await createRazorpaySubscription({
+      plan,
+      customerEmail: user.email,
+      userId: user._id,
+    });
+
+    return res.status(200).json({ data: { checkout, plan } });
   } catch (error) {
     return res.status(500).json({ message: "Something went wrong" });
   }
 };
 
 export const verifySubscription = async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, subscriptionId } = req.body;
+  const { razorpay_subscription_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+  if (!razorpay_subscription_id || !razorpay_payment_id || !razorpay_signature) {
     return res.status(400).json({ message: "Payment verification data is required" });
   }
 
   try {
     const generatedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .update(`${razorpay_payment_id}|${razorpay_subscription_id}`)
       .digest("hex");
 
     if (generatedSignature !== razorpay_signature) {
@@ -87,7 +87,7 @@ export const verifySubscription = async (req, res) => {
       {
         status: "active",
         cancelAtPeriodEnd: false,
-        razorpaySubscriptionId: subscriptionId || undefined,
+        razorpaySubscriptionId: razorpay_subscription_id,
       },
       { new: true }
     );

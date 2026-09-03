@@ -19,22 +19,26 @@ type Plan = {
 };
 
 type RazorpayResponse = {
-  razorpay_order_id: string;
+  razorpay_subscription_id: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
 };
 
 type RazorpayOptions = {
   key: string | undefined;
-  order_id: string;
+  subscription_id: string;
   handler: (response: RazorpayResponse) => void;
   prefill: { email: string; name: string };
   theme: { color: string };
+  on?: (event: string, handler: () => void) => void;
 };
 
 declare global {
   interface Window {
-    Razorpay: new (options: RazorpayOptions) => { open: () => void };
+    Razorpay: new (options: RazorpayOptions) => {
+      open: () => void;
+      on?: (event: string, handler: () => void) => void;
+    };
   }
 }
 
@@ -44,6 +48,7 @@ const Subscription = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState("free");
   const [loading, setLoading] = useState(true);
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -80,25 +85,29 @@ const Subscription = () => {
       return;
     }
 
+    setProcessingPlan(planKey);
+
     try {
-      const res = await axiosInstance.post("/payment/checkout", { plan: planKey });
-      
-      if (res.data.data.order) {
+      const res = await axiosInstance.post("/subscription/create", { plan: planKey });
+      const subscriptionId = res.data.data.checkout.id;
+
+      if (subscriptionId) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          order_id: res.data.data.order.id,
+          subscription_id: subscriptionId,
           handler: async (response: RazorpayResponse) => {
             try {
-              await axiosInstance.post("/payment/verify", {
-                razorpay_order_id: response.razorpay_order_id,
+              await axiosInstance.post("/subscription/verify", {
+                razorpay_subscription_id: response.razorpay_subscription_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
               });
-              toast.success("Payment successful! Subscription activated.");
+              toast.info("Payment received. Waiting for subscription confirmation.");
               fetchCurrentSubscription();
             } catch (error) {
               toast.error("Payment verification failed");
             }
+            setProcessingPlan(null);
           },
           prefill: {
             email: user.email,
@@ -111,12 +120,18 @@ const Subscription = () => {
 
         if (typeof window !== "undefined" && window.Razorpay) {
           const razorpay = new window.Razorpay(options);
+          razorpay.on?.("payment.failed", () => {
+            setProcessingPlan(null);
+            toast.error("Payment failed");
+          });
           razorpay.open();
         } else {
+          setProcessingPlan(null);
           toast.error("Razorpay is not loaded");
         }
       }
     } catch (error) {
+      setProcessingPlan(null);
       toast.error("Failed to initiate payment");
     }
   };
@@ -165,7 +180,7 @@ const Subscription = () => {
                   <div className="flex items-center gap-2">
                     <Check className="w-5 h-5 text-green-500" />
                     <span className="text-sm">
-                      {plan.dailyQuestionLimit === Infinity
+                      {!Number.isFinite(plan.dailyQuestionLimit)
                         ? "Unlimited questions"
                         : `${plan.dailyQuestionLimit} questions/day`}
                     </span>
@@ -216,11 +231,11 @@ const Subscription = () => {
 
                 <Button
                   onClick={() => handleUpgrade(plan.key)}
-                  disabled={currentPlan === plan.key}
+                  disabled={currentPlan === plan.key || processingPlan !== null}
                   className="w-full"
                   variant={currentPlan === plan.key ? "outline" : "default"}
                 >
-                  {currentPlan === plan.key ? "Current Plan" : "Upgrade"}
+                  {processingPlan === plan.key ? "Opening checkout..." : currentPlan === plan.key ? "Current Plan" : "Upgrade"}
                 </Button>
               </CardContent>
             </Card>
