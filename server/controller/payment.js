@@ -4,6 +4,7 @@ import Subscription from "../models/subscription.js";
 import WebhookEvent from "../models/webhookEvent.js";
 import User from "../models/auth.js";
 import { createRazorpayOrder, createRazorpaySubscription } from "../services/razorpay.js";
+import { sendPaymentConfirmationEmail } from "../services/email.js";
 
 export const createPaymentSession = async (req, res) => {
   const { plan } = req.body;
@@ -191,7 +192,13 @@ export const handleWebhook = async (req, res) => {
   }
 
   if (["payment.captured", "payment.failed"].includes(event.event) && paymentEntity?.id && userId && plan) {
-    await Payment.findOneAndUpdate(
+    const captured = event.event === "payment.captured";
+    const invoiceNumber = captured
+      ? `INV-${Date.now()}-${paymentEntity.id.slice(-8)}`
+      : undefined;
+    const invoiceBaseUrl =
+      process.env.PUBLIC_API_URL || "http://localhost:5000";
+    const payment = await Payment.findOneAndUpdate(
       { paymentId: paymentEntity.id },
       {
         userId,
@@ -200,18 +207,49 @@ export const handleWebhook = async (req, res) => {
         orderId: paymentEntity.order_id,
         amount: paymentEntity.amount,
         currency: paymentEntity.currency || "INR",
-        status: event.event === "payment.captured" ? "paid" : "failed",
-        paidAt: event.event === "payment.captured" ? new Date() : undefined,
+        status: captured ? "paid" : "failed",
+        paidAt: captured ? new Date() : undefined,
+        invoiceNumber,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    if (event.event === "payment.captured" && subscriptionId) {
+    if (captured) {
+      payment.invoiceUrl = `${invoiceBaseUrl}/subscription/invoices/${payment._id}`;
+      await payment.save();
+    }
+
+    if (captured && subscriptionId) {
       await Subscription.findOneAndUpdate(
         { razorpaySubscriptionId: subscriptionId },
         { status: "active", lastPaymentId: paymentEntity.id },
         { new: true }
       );
+    }
+
+    if (captured) {
+      const user = await User.findById(userId).select("name email");
+      const subscription = subscriptionId
+        ? await Subscription.findOne({ razorpaySubscriptionId: subscriptionId })
+        : null;
+
+      if (user?.email) {
+        try {
+          await sendPaymentConfirmationEmail({
+            email: user.email,
+            name: user.name,
+            plan,
+            amount: payment.amount,
+            paidAt: payment.paidAt,
+            renewalDate: subscription?.currentPeriodEnd,
+            subscriptionId,
+            invoiceNumber: payment.invoiceNumber,
+            invoiceUrl: payment.invoiceUrl,
+          });
+        } catch (error) {
+          console.error("Payment confirmation email failed:", error);
+        }
+      }
     }
   }
 

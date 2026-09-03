@@ -22,6 +22,7 @@ type Payment = {
   plan: string;
   amount?: number;
   status: string;
+  invoiceNumber?: string;
 };
 
 const BillingDashboard = () => {
@@ -74,6 +75,23 @@ const BillingDashboard = () => {
 
   const handleUpgrade = () => {
     router.push("/subscription");
+  };
+
+  const handleDownloadInvoice = async (payment: Payment) => {
+    try {
+      const response = await axiosInstance.get(`/subscription/invoices/${payment._id}`);
+      const invoice = new Blob([JSON.stringify(response.data.data, null, 2)], {
+        type: "application/json",
+      });
+      const downloadUrl = URL.createObjectURL(invoice);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${payment.invoiceNumber || `invoice-${payment._id}`}.json`;
+      link.click();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      toast.error("Unable to download invoice");
+    }
   };
 
   if (loading) {
@@ -216,7 +234,13 @@ const BillingDashboard = () => {
                           </Badge>
                         </td>
                         <td className="py-3 px-4">
-                          <Button variant="ghost" size="sm" className="gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => handleDownloadInvoice(payment)}
+                            disabled={!payment.invoiceNumber}
+                          >
                             <Download className="w-4 h-4" />
                             Download
                           </Button>
