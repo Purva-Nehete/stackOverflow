@@ -34,4 +34,31 @@ const auth = async (req, res, next) => {
   }
 };
 
+export const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return next();
+  }
+
+  try {
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Invalid authorization header" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decodedata = jwt.verify(token, process.env.JWT_SECRET);
+    const existingUser = await user.findById(decodedata.id);
+
+    if (!existingUser) {
+      return res.status(401).json({ message: "User no longer exists" });
+    }
+
+    req.userid = decodedata.id;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+};
+
 export default auth;

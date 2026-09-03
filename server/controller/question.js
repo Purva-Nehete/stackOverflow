@@ -46,10 +46,81 @@ export const Askquestion = async (req, res) => {
 
 export const getallquestion = async (req, res) => {
   try {
-    const allquestion = await question.find().sort({ askedon: -1 });
+    const {
+      query,
+      tag,
+      sort = "recent",
+      dateFrom,
+      dateTo,
+      answered,
+      userId,
+    } = req.query;
+    const tags = Array.isArray(tag)
+      ? tag.flatMap((value) => value.split(","))
+      : tag
+        ? tag.split(",")
+        : [];
+    const advancedSearchRequested =
+      tags.length > 1 || dateFrom || dateTo || answered !== undefined || userId || sort === "popular";
+
+    if (advancedSearchRequested) {
+      const subscription = req.userid
+        ? await Subscription.findOne({ userId: req.userid, status: "active" }).sort({
+            createdAt: -1,
+          })
+        : null;
+      const subscriptionIsCurrent =
+        subscription?.currentPeriodEnd && subscription.currentPeriodEnd > new Date();
+      const planKey = subscriptionIsCurrent ? subscription.plan : "free";
+
+      if (!getPlanByKey(planKey).features.advancedSearch) {
+        return res.status(403).json({
+          message: "Advanced search requires a premium plan",
+          feature: "advancedSearch",
+          plan: planKey,
+        });
+      }
+    }
+
+    if (!['recent', 'popular'].includes(sort)) {
+      return res.status(400).json({ message: "Invalid sort option" });
+    }
+
+    const filters = {};
+
+    if (query) {
+      filters.$or = [
+        { questiontitle: { $regex: query, $options: "i" } },
+        { questionbody: { $regex: query, $options: "i" } },
+      ];
+    }
+
+    if (tags.length) {
+      filters.questiontags = { $all: tags.map((value) => value.trim()).filter(Boolean) };
+    }
+
+    if (dateFrom || dateTo) {
+      filters.askedon = {};
+      if (dateFrom) filters.askedon.$gte = new Date(dateFrom);
+      if (dateTo) filters.askedon.$lte = new Date(dateTo);
+    }
+
+    if (answered !== undefined) {
+      if (!["true", "false"].includes(answered)) {
+        return res.status(400).json({ message: "answered must be true or false" });
+      }
+      filters.noofanswer = answered === "true" ? { $gt: 0 } : 0;
+    }
+
+    if (userId) {
+      filters.userid = userId;
+    }
+
+    const sortOrder = sort === "popular" ? { upvote: -1, askedon: -1 } : { askedon: -1 };
+    const allquestion = await question.find(filters).sort(sortOrder);
     res.status(200).json({ data: allquestion });
   } catch (error) {
-    res.status(500).json("something went wrong..");
+    res.status(500).json({ message: "Unable to search questions" });
     return;
   }
 };
