@@ -12,8 +12,10 @@ import { toast } from "react-toastify";
 type Subscription = {
   plan: string;
   status: string;
+  currentPeriodStart?: string;
   currentPeriodEnd?: string;
   cancelAtPeriodEnd?: boolean;
+  razorpaySubscriptionId?: string;
 };
 
 type Payment = {
@@ -52,7 +54,7 @@ const BillingDashboard = () => {
 
   const fetchPaymentHistory = async () => {
     try {
-      const res = await axiosInstance.get("/subscription/history");
+      const res = await axiosInstance.get("/subscription/payments");
       setPayments(res.data.data);
     } catch (error) {
       console.log(error);
@@ -119,9 +121,7 @@ const BillingDashboard = () => {
                 <label className="text-sm text-gray-500">Plan</label>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-2xl font-bold capitalize">{subscription?.plan}</span>
-                  {subscription?.plan !== "free" && (
-                    <Badge className="bg-blue-500">{subscription?.status}</Badge>
-                  )}
+                  <Badge className="bg-blue-500 capitalize">{subscription?.plan || "free"}</Badge>
                 </div>
               </div>
 
@@ -130,6 +130,14 @@ const BillingDashboard = () => {
                   <label className="text-sm text-gray-500">Status</label>
                   <p className="text-lg font-semibold capitalize mt-1">
                     {subscription?.status || "inactive"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Start Date</label>
+                  <p className="text-lg font-semibold mt-1">
+                    {subscription?.currentPeriodStart
+                      ? new Date(subscription.currentPeriodStart).toLocaleDateString()
+                      : "N/A"}
                   </p>
                 </div>
                 <div>
@@ -147,6 +155,12 @@ const BillingDashboard = () => {
                   <p className="text-sm text-yellow-800">
                     This subscription will be cancelled at the end of the billing period.
                   </p>
+                </div>
+              )}
+
+              {subscription?.razorpaySubscriptionId && (
+                <div className="text-sm text-gray-500">
+                  Subscription ID: {subscription.razorpaySubscriptionId}
                 </div>
               )}
 

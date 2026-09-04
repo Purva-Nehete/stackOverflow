@@ -157,6 +157,11 @@ export const getSubscriptionInvoice = async (req, res) => {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${payment.invoiceNumber || `invoice-${payment._id}`}.json"`
+    );
     return res.status(200).json({ data: payment });
   } catch (error) {
     return res.status(500).json({ message: "Something went wrong" });
