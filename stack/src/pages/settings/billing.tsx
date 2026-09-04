@@ -28,9 +28,8 @@ type Payment = {
 };
 
 const BillingDashboard = () => {
-  const { user } = useAuth();
+  const { user, subscription, subscriptionLoading, refreshSubscription } = useAuth();
   const router = useRouter();
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,18 +38,8 @@ const BillingDashboard = () => {
       router.push("/auth");
       return;
     }
-    fetchSubscription();
     fetchPaymentHistory();
   }, [user]);
-
-  const fetchSubscription = async () => {
-    try {
-      const res = await axiosInstance.get("/subscription/me");
-      setSubscription(res.data.data);
-    } catch (error) {
-      console.log(error);
-    }
-  };
 
   const fetchPaymentHistory = async () => {
     try {
@@ -68,7 +57,7 @@ const BillingDashboard = () => {
       try {
         await axiosInstance.patch("/subscription/cancel");
         toast.success("Subscription cancelled");
-        fetchSubscription();
+        await refreshSubscription();
       } catch (error) {
         toast.error("Failed to cancel subscription");
       }
@@ -96,7 +85,7 @@ const BillingDashboard = () => {
     }
   };
 
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
       <Mainlayout>
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>

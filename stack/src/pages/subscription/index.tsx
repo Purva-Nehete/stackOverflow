@@ -43,10 +43,9 @@ declare global {
 }
 
 const Subscription = () => {
-  const { user } = useAuth();
+  const { user, subscription, refreshSubscription } = useAuth();
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [currentPlan, setCurrentPlan] = useState("free");
   const [loading, setLoading] = useState(true);
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
@@ -56,7 +55,6 @@ const Subscription = () => {
       return;
     }
     fetchPlans();
-    fetchCurrentSubscription();
   }, [user]);
 
   const fetchPlans = async () => {
@@ -65,15 +63,6 @@ const Subscription = () => {
       setPlans(res.data.data);
     } catch (error) {
       toast.error("Failed to load plans");
-    }
-  };
-
-  const fetchCurrentSubscription = async () => {
-    try {
-      const res = await axiosInstance.get("/subscription/me");
-      setCurrentPlan(res.data.data.plan || "free");
-    } catch (error) {
-      console.log(error);
     } finally {
       setLoading(false);
     }
@@ -103,7 +92,7 @@ const Subscription = () => {
                 razorpay_signature: response.razorpay_signature,
               });
               toast.info("Payment received. Waiting for subscription confirmation.");
-              fetchCurrentSubscription();
+              await refreshSubscription();
             } catch (error) {
               toast.error("Payment verification failed");
             }
@@ -159,13 +148,13 @@ const Subscription = () => {
             <Card
               key={plan.key}
               className={`flex flex-col transition-all ${
-                currentPlan === plan.key ? "ring-2 ring-blue-500 shadow-lg" : ""
+                subscription?.plan === plan.key ? "ring-2 ring-blue-500 shadow-lg" : ""
               }`}
             >
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xl">{plan.name}</CardTitle>
-                  {currentPlan === plan.key && (
+                  {subscription?.plan === plan.key && (
                     <Badge className="bg-green-500">Current</Badge>
                   )}
                 </div>
@@ -231,11 +220,11 @@ const Subscription = () => {
 
                 <Button
                   onClick={() => handleUpgrade(plan.key)}
-                  disabled={currentPlan === plan.key || processingPlan !== null}
+                  disabled={subscription?.plan === plan.key || processingPlan !== null}
                   className="w-full"
-                  variant={currentPlan === plan.key ? "outline" : "default"}
+                  variant={subscription?.plan === plan.key ? "outline" : "default"}
                 >
-                  {processingPlan === plan.key ? "Opening checkout..." : currentPlan === plan.key ? "Current Plan" : "Upgrade"}
+                  {processingPlan === plan.key ? "Opening checkout..." : subscription?.plan === plan.key ? "Current Plan" : "Upgrade"}
                 </Button>
               </CardContent>
             </Card>
