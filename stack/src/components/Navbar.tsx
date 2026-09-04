@@ -63,6 +63,12 @@ const Navbar = ({ handleslidein }: any) => {
           ) : (
             <>
               <Link
+                href="/subscription"
+                className="text-sm font-medium text-[#454545] bg-[#e7f8fe] hover:bg-[#d3e4eb] border border-blue-500 px-4 py-1.5 rounded transition"
+              >
+                Subscription
+              </Link>
+              <Link
                 href={`/users/${user._id}`}
                 className="flex items-center justify-center bg-orange-600 text-white text-sm font-semibold w-9 h-9 rounded-full"
               >
