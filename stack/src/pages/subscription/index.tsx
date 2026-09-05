@@ -19,14 +19,16 @@ type Plan = {
 };
 
 type RazorpayResponse = {
-  razorpay_subscription_id: string;
+  razorpay_subscription_id?: string;
+  razorpay_order_id?: string;
   razorpay_payment_id: string;
   razorpay_signature: string;
 };
 
 type RazorpayOptions = {
   key: string | undefined;
-  subscription_id: string;
+  subscription_id?: string;
+  order_id?: string;
   handler: (response: RazorpayResponse) => void;
   prefill: { email: string; name: string };
   theme: { color: string };
@@ -78,19 +80,31 @@ const Subscription = () => {
 
     try {
       const res = await axiosInstance.post("/subscription/create", { plan: planKey });
-      const subscriptionId = res.data.data.checkout.id;
+      const checkout = res.data.data.checkout;
+      const checkoutId = checkout.id;
 
-      if (subscriptionId) {
+      if (checkoutId) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          subscription_id: subscriptionId,
+          ...(checkout.mode === "order"
+            ? { order_id: checkoutId }
+            : { subscription_id: checkoutId }),
           handler: async (response: RazorpayResponse) => {
             try {
-              await axiosInstance.post("/subscription/verify", {
-                razorpay_subscription_id: response.razorpay_subscription_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              });
+              if (checkout.mode === "order") {
+                await axiosInstance.post("/payment/verify", {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  plan: planKey,
+                });
+              } else {
+                await axiosInstance.post("/subscription/verify", {
+                  razorpay_subscription_id: response.razorpay_subscription_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                });
+              }
               toast.info("Payment received. Waiting for subscription confirmation.");
               await refreshSubscription();
             } catch (error) {

@@ -81,7 +81,11 @@ export const createSubscriptionCheckout = async (req, res) => {
 };
 
 export const verifyPayment = async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan } = req.body;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !plan) {
+    return res.status(400).json({ message: "Payment verification data is required" });
+  }
 
   const body = `${razorpay_order_id}|${razorpay_payment_id}`;
   const expectedSignature = crypto
@@ -93,7 +97,53 @@ export const verifyPayment = async (req, res) => {
     return res.status(400).json({ message: "Invalid signature" });
   }
 
-  return res.status(200).json({ message: "Payment verified successfully" });
+  const planPrices = {
+    bronze: 9900,
+    silver: 29900,
+    gold: 99900,
+  };
+
+  if (!planPrices[plan]) {
+    return res.status(400).json({ message: "Invalid plan" });
+  }
+
+  try {
+    await Payment.findOneAndUpdate(
+      { paymentId: razorpay_payment_id },
+      {
+        userId: req.userid,
+        plan,
+        paymentId: razorpay_payment_id,
+        orderId: razorpay_order_id,
+        amount: planPrices[plan],
+        currency: "INR",
+        status: "paid",
+        paidAt: new Date(),
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const subscription = await Subscription.findOneAndUpdate(
+      { userId: req.userid },
+      {
+        userId: req.userid,
+        plan,
+        status: "active",
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        cancelAtPeriodEnd: false,
+        lastPaymentId: razorpay_payment_id,
+      },
+      { upsert: true, new: true }
+    );
+
+    return res.status(200).json({
+      message: "Payment verified successfully",
+      data: subscription,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Payment was verified but activation failed" });
+  }
 };
 
 export const handleWebhook = async (req, res) => {

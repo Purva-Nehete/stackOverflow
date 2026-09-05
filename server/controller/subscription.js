@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Subscription from "../models/subscription.js";
 import Payment from "../models/payment.js";
 import User from "../models/auth.js";
-import { createRazorpaySubscription } from "../services/razorpay.js";
+import { createRazorpayOrder, createRazorpaySubscription } from "../services/razorpay.js";
 import { getPlanList } from "../config/plans.js";
 
 export const getSubscriptionPlans = async (req, res) => {
@@ -55,6 +55,29 @@ export const createOrUpdateSubscription = async (req, res) => {
     const user = await User.findById(req.userid).select("name email");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    const planPrices = {
+      bronze: 9900,
+      silver: 29900,
+      gold: 99900,
+    };
+    const planId = process.env[`RAZORPAY_PLAN_${plan.toUpperCase()}`];
+
+    if (process.env.RAZORPAY_MODE === "test" && !planId) {
+      const order = await createRazorpayOrder({
+        amount: planPrices[plan],
+        currency: "INR",
+        receipt: `${user._id}-${Date.now()}`,
+        notes: {
+          userId: user._id.toString(),
+          plan,
+        },
+      });
+
+      return res.status(200).json({
+        data: { checkout: { ...order, mode: "order" }, plan },
+      });
     }
 
     const checkout = await createRazorpaySubscription({
