@@ -12,7 +12,11 @@ export const getSubscriptionPlans = async (req, res) => {
       data: getPlanList(),
     });
   } catch (error) {
-    return res.status(500).json({ message: "Something went wrong" });
+    console.error("Create subscription error:", error);
+    return res.status(502).json({
+      message: "Unable to create Razorpay subscription",
+      error: error?.message || error?.error?.description || "Razorpay request failed",
+    });
   }
 };
 
@@ -61,7 +65,11 @@ export const createOrUpdateSubscription = async (req, res) => {
 
     return res.status(200).json({ data: { checkout, plan } });
   } catch (error) {
-    return res.status(500).json({ message: "Something went wrong" });
+    console.error("Create subscription error:", error);
+    return res.status(502).json({
+      message: "Unable to create Razorpay subscription",
+      error: error?.message || error?.error?.description || "Razorpay request failed",
+    });
   }
 };
 

@@ -119,9 +119,13 @@ const Subscription = () => {
           toast.error("Razorpay is not loaded");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       setProcessingPlan(null);
-      toast.error("Failed to initiate payment");
+      toast.error(
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          "Failed to initiate payment"
+      );
     }
   };
 

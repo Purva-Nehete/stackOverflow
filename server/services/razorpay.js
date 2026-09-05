@@ -1,5 +1,15 @@
 import Razorpay from "razorpay";
 
+const razorpayMode = process.env.RAZORPAY_MODE || "test";
+
+if (razorpayMode !== "test") {
+  throw new Error("This internship build supports Razorpay Test Mode only");
+}
+
+if (!process.env.RAZORPAY_KEY_ID?.startsWith("rzp_test_")) {
+  throw new Error("RAZORPAY_KEY_ID must be a Razorpay Test Mode key");
+}
+
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
@@ -21,15 +31,19 @@ export const createRazorpaySubscription = async ({
   totalCount = 12,
 }) => {
   const planMap = {
-    bronze: "plan_bronze",
-    silver: "plan_silver",
-    gold: "plan_gold",
+    bronze: process.env.RAZORPAY_PLAN_BRONZE,
+    silver: process.env.RAZORPAY_PLAN_SILVER,
+    gold: process.env.RAZORPAY_PLAN_GOLD,
   };
 
   const planId = planMap[plan];
 
   if (!planId) {
-    throw new Error("Unsupported plan");
+    throw new Error(`Razorpay plan ID is not configured for ${plan}`);
+  }
+
+  if (!planId.startsWith("plan_")) {
+    throw new Error(`Invalid Razorpay Test Mode plan ID for ${plan}`);
   }
 
   return await razorpay.subscriptions.create({
