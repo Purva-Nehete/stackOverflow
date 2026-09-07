@@ -1,8 +1,27 @@
+export const productRules = {
+  policy: {
+    downgradeAtRenewal: true,
+    immediateUpgrade: true,
+    cancelAtPeriodEnd: true,
+    failedRenewalKeepsAccessUntilPeriodEnd: true,
+    bookmarksLimitByPlan: true,
+    invoiceGeneration: "provider",
+  },
+  currency: "INR",
+  billingCycle: "monthly",
+  notes: {
+    free: "Basic access with a single daily question limit.",
+    bronze: "Monthly renewal allows access to bronze-specific benefits.",
+    silver: "Includes priority support and enhanced visibility, with unlimited bookmarks.",
+    gold: "Highest priority plan with exclusive community access and unlimited question posting.",
+  },
+};
+
 export const planDefinitions = {
   free: {
     name: "Free",
     price: 0,
-    currency: "INR",
+    currency: productRules.currency,
     dailyQuestionLimit: 1,
     badge: null,
     features: {
@@ -17,7 +36,7 @@ export const planDefinitions = {
   bronze: {
     name: "Bronze",
     price: 99,
-    currency: "INR",
+    currency: productRules.currency,
     dailyQuestionLimit: 5,
     badge: "Bronze",
     features: {
@@ -32,7 +51,7 @@ export const planDefinitions = {
   silver: {
     name: "Silver",
     price: 299,
-    currency: "INR",
+    currency: productRules.currency,
     dailyQuestionLimit: 15,
     badge: "Silver",
     features: {
@@ -47,7 +66,7 @@ export const planDefinitions = {
   gold: {
     name: "Gold",
     price: 999,
-    currency: "INR",
+    currency: productRules.currency,
     dailyQuestionLimit: Infinity,
     badge: "Gold",
     features: {
