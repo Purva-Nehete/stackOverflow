@@ -9,5 +9,19 @@ const userschema = mongoose.Schema({
   tags: { type: [String] },
   joinDate: { type: Date, default: Date.now },
   forgotPasswordRequestedAt: { type: Date, default: null },
+  subscriptionPlan: {
+    type: String,
+    enum: ["free", "bronze", "silver", "gold"],
+    default: "free",
+  },
+  subscriptionStatus: {
+    type: String,
+    enum: ["inactive", "active", "cancelled", "past_due", "expired"],
+    default: "inactive",
+  },
+  subscriptionId: { type: String, default: null },
+  subscriptionStartDate: { type: Date, default: null },
+  subscriptionEndDate: { type: Date, default: null },
+  cancelAtPeriodEnd: { type: Boolean, default: false },
 });
 export default mongoose.model("user", userschema);
