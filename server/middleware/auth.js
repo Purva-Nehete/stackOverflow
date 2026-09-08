@@ -30,6 +30,10 @@ const auth = async (req, res, next) => {
     req.userid = decodedata.id;
     next();
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
@@ -47,7 +51,15 @@ export const optionalAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
+    if (!token) {
+      return res.status(401).json({ message: "Authentication token missing" });
+    }
+
     const decodedata = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decodedata?.id) {
+      return res.status(401).json({ message: "Invalid token payload" });
+    }
+
     const existingUser = await user.findById(decodedata.id);
 
     if (!existingUser) {
@@ -57,6 +69,10 @@ export const optionalAuth = async (req, res, next) => {
     req.userid = decodedata.id;
     next();
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Token expired" });
+    }
+
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
