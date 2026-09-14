@@ -72,6 +72,8 @@ export const ForgotPassword = async (req, res) => {
   const { email, phone } = req.body || {};
   const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
   const normalizedPhone = typeof phone === "string" ? phone.trim() : "";
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phonePattern = /^\+?[\d\s().-]{7,20}$/;
 
   if (!normalizedEmail && !normalizedPhone) {
     return res.status(400).json({
@@ -79,10 +81,20 @@ export const ForgotPassword = async (req, res) => {
     });
   }
 
+  if (normalizedEmail && !emailPattern.test(normalizedEmail)) {
+    return res.status(400).json({ message: "Please provide a valid email address." });
+  }
+
+  if (normalizedPhone && !phonePattern.test(normalizedPhone)) {
+    return res.status(400).json({ message: "Please provide a valid phone number." });
+  }
+
   try {
-    const existingUser = await user.findOne({
-      $or: [{ email: normalizedEmail }, { phone: normalizedPhone }],
-    });
+    const identifiers = [];
+    if (normalizedEmail) identifiers.push({ email: normalizedEmail });
+    if (normalizedPhone) identifiers.push({ phone: normalizedPhone });
+
+    const existingUser = await user.findOne({ $or: identifiers });
 
     if (!existingUser) {
       return res.status(404).json({

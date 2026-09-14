@@ -27,8 +27,23 @@ const ForgotPasswordPage = () => {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
-    if (!form.email && !form.phone) {
+    const email = form.email.trim().toLowerCase();
+    const phone = form.phone.trim();
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phonePattern = /^\+?[\d\s().-]{7,20}$/;
+
+    if (!email && !phone) {
       toast.error("Please enter your email or phone number");
+      return;
+    }
+
+    if (email && !emailPattern.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (phone && !phonePattern.test(phone)) {
+      toast.error("Please enter a valid phone number");
       return;
     }
 
@@ -37,8 +52,8 @@ const ForgotPasswordPage = () => {
 
     try {
       const res = await axiosInstance.post("/user/forgot-password", {
-        email: form.email,
-        phone: form.phone,
+        email,
+        phone,
       });
 
       if (res.data?.generatedPassword) {
