@@ -23,6 +23,79 @@ const isSafeMediaUrl = (value) => {
 const isSafeStorageKey = (value) =>
   !value || /^[a-zA-Z0-9/_ .-]+$/.test(value);
 
+const MAX_FEED_LIMIT = 50;
+
+const encodeCursor = (post, sort) => {
+  const cursor = {
+    id: String(post._id),
+    createdAt: post.createdAt.toISOString(),
+  };
+
+  if (sort === "trending") {
+    cursor.engagementScore = post.engagementScore;
+  }
+
+  return Buffer.from(JSON.stringify(cursor)).toString("base64url");
+};
+
+const decodeCursor = (value, sort) => {
+  if (!value) return null;
+
+  try {
+    const decoded = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+    if (!mongoose.Types.ObjectId.isValid(decoded.id)) {
+      throw new Error("Invalid cursor ID");
+    }
+
+    const createdAt = new Date(decoded.createdAt);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw new Error("Invalid cursor date");
+    }
+
+    if (sort === "trending" && !Number.isFinite(decoded.engagementScore)) {
+      throw new Error("Invalid cursor score");
+    }
+
+    return {
+      id: new mongoose.Types.ObjectId(decoded.id),
+      createdAt,
+      engagementScore: decoded.engagementScore,
+    };
+  } catch {
+    const error = new Error("Invalid pagination cursor");
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
+const getCursorFilter = (cursor, sort) => {
+  if (!cursor) return null;
+
+  if (sort === "trending") {
+    return {
+      $or: [
+        { engagementScore: { $lt: cursor.engagementScore } },
+        {
+          engagementScore: cursor.engagementScore,
+          createdAt: { $lt: cursor.createdAt },
+        },
+        {
+          engagementScore: cursor.engagementScore,
+          createdAt: cursor.createdAt,
+          _id: { $lt: cursor.id },
+        },
+      ],
+    };
+  }
+
+  return {
+    $or: [
+      { createdAt: { $lt: cursor.createdAt } },
+      { createdAt: cursor.createdAt, _id: { $lt: cursor.id } },
+    ],
+  };
+};
+
 const getValidationError = ({
   content,
   media,
@@ -152,35 +225,80 @@ export const createPost = async (req, res) => {
   }
 };
 
-export const getAllPosts = async (req, res) => {
+export const getFeed = async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 20, 50);
-    const page = Math.max(Number(req.query.page) || 1, 1);
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Math.min(
+      Number.isInteger(requestedLimit) && requestedLimit > 0 ? requestedLimit : 20,
+      MAX_FEED_LIMIT
+    );
+    const sort = req.query.sort || "recent";
+
+    if (!["recent", "trending"].includes(sort)) {
+      return res.status(400).json({ message: "sort must be recent or trending" });
+    }
+
+    const cursor = decodeCursor(req.query.cursor, sort);
 
     const filter = {
       isRemoved: false,
       deletedAt: null,
+      visibility: "public",
     };
 
-    const total = await Post.countDocuments(filter);
+    if (req.query.authorId) {
+      if (!mongoose.Types.ObjectId.isValid(req.query.authorId)) {
+        return res.status(400).json({ message: "Invalid author ID." });
+      }
+      filter.authorId = req.query.authorId;
+    }
+
+    if (req.query.tag) {
+      const tag = String(req.query.tag).replace(/^#/, "").trim().toLowerCase();
+      if (!/^[\w-]{1,50}$/.test(tag)) {
+        return res.status(400).json({ message: "Invalid hashtag." });
+      }
+      filter.hashtags = tag;
+    }
+
+    const cursorFilter = getCursorFilter(cursor, sort);
+    if (cursorFilter) {
+      Object.assign(filter, cursorFilter);
+    }
+
+    const sortOrder =
+      sort === "trending"
+        ? { engagementScore: -1, createdAt: -1, _id: -1 }
+        : { createdAt: -1, _id: -1 };
+
     const posts = await Post.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+      .sort(sortOrder)
+      .limit(limit + 1);
+
+    const hasMore = posts.length > limit;
+    const data = hasMore ? posts.slice(0, limit) : posts;
 
     return res.status(200).json({
-      data: posts,
+      data,
+      nextCursor: hasMore ? encodeCursor(data[data.length - 1], sort) : null,
+      hasMore,
       pagination: {
-        page,
         limit,
-        total,
+        sort,
+        hasMore,
+        nextCursor: hasMore ? encodeCursor(data[data.length - 1], sort) : null,
       },
     });
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     console.error(error);
     return res.status(500).json({ message: "Unable to fetch posts." });
   }
 };
+
+export const getAllPosts = getFeed;
 
 export const getPostById = async (req, res) => {
   try {

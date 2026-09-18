@@ -9,6 +9,7 @@ import bookmarkroutes from "./routes/bookmark.js";
 import subscriptionroutes from "./routes/subscription.js";
 import paymentroutes from "./routes/payment.js";
 import postroutes from "./routes/post.js";
+import feedroutes from "./routes/feed.js";
 
 const app = express();
 app.use(
@@ -34,6 +35,7 @@ app.use("/bookmark", bookmarkroutes);
 app.use("/subscription", subscriptionroutes);
 app.use("/payment", paymentroutes);
 app.use("/post", postroutes);
+app.use("/feed", feedroutes);
 
 const PORT = process.env.PORT || 5000;
 const databaseurl = process.env.MONGODB_URL;
