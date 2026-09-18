@@ -9,6 +9,10 @@ router.get("/following", optionalAuth, (req, res, next) => {
   req.query.feed = "following";
   return getFeed(req, res, next);
 });
+router.get("/trending", optionalAuth, (req, res, next) => {
+  req.query.sort = "trending";
+  return getFeed(req, res, next);
+});
 router.get("/users/:id/posts", optionalAuth, (req, res, next) => {
   req.query.authorId = req.params.id;
   return getFeed(req, res, next);
