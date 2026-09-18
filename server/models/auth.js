@@ -23,5 +23,7 @@ const userschema = mongoose.Schema({
   subscriptionStartDate: { type: Date, default: null },
   subscriptionEndDate: { type: Date, default: null },
   cancelAtPeriodEnd: { type: Boolean, default: false },
+  followersCount: { type: Number, default: 0, min: 0 },
+  followingCount: { type: Number, default: 0, min: 0 },
 });
 export default mongoose.model("user", userschema);

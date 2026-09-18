@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Post from "../models/post.js";
 import user from "../models/auth.js";
+import Follow from "../models/follow.js";
 
 const extractHashtags = (text = "") => {
   const matches = text.match(/#[\w-]+/g) || [];
@@ -233,9 +234,18 @@ export const getFeed = async (req, res) => {
       MAX_FEED_LIMIT
     );
     const sort = req.query.sort || "recent";
+    const feed = req.query.feed || "public";
 
     if (!["recent", "trending"].includes(sort)) {
       return res.status(400).json({ message: "sort must be recent or trending" });
+    }
+
+    if (!["public", "following"].includes(feed)) {
+      return res.status(400).json({ message: "feed must be public or following" });
+    }
+
+    if (feed === "following" && !req.userid) {
+      return res.status(401).json({ message: "Authentication required for following feed." });
     }
 
     const cursor = decodeCursor(req.query.cursor, sort);
@@ -243,8 +253,15 @@ export const getFeed = async (req, res) => {
     const filter = {
       isRemoved: false,
       deletedAt: null,
-      visibility: "public",
     };
+
+    if (feed === "public") {
+      filter.visibility = "public";
+    } else {
+      const followedUsers = await Follow.find({ followerId: req.userid }).distinct("followingId");
+      filter.authorId = { $in: [req.userid, ...followedUsers] };
+      filter.visibility = { $in: ["public", "followers"] };
+    }
 
     if (req.query.authorId) {
       if (!mongoose.Types.ObjectId.isValid(req.query.authorId)) {
@@ -285,6 +302,7 @@ export const getFeed = async (req, res) => {
       pagination: {
         limit,
         sort,
+        feed,
         hasMore,
         nextCursor: hasMore ? encodeCursor(data[data.length - 1], sort) : null,
       },
