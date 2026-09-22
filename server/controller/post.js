@@ -3,6 +3,7 @@ import Post from "../models/post.js";
 import user from "../models/auth.js";
 import Follow from "../models/follow.js";
 import { notifyMentionedUsers } from "../services/notification.js";
+import { serializePublicPost } from "../services/postSerializer.js";
 
 const extractHashtags = (text = "") => {
   const matches = text.match(/#[\w-]+/g) || [];
@@ -225,7 +226,7 @@ export const createPost = async (req, res) => {
 
     return res.status(201).json({
       message: "Post created successfully.",
-      data: newPost,
+      data: serializePublicPost(newPost),
     });
   } catch (error) {
     console.error(error);
@@ -303,7 +304,7 @@ export const getFeed = async (req, res) => {
     const data = hasMore ? posts.slice(0, limit) : posts;
 
     return res.status(200).json({
-      data,
+      data: data.map(serializePublicPost),
       nextCursor: hasMore ? encodeCursor(data[data.length - 1], sort) : null,
       hasMore,
       pagination: {
@@ -338,7 +339,7 @@ export const getPostById = async (req, res) => {
       return res.status(404).json({ message: "Post not found." });
     }
 
-    return res.status(200).json({ data: post });
+    return res.status(200).json({ data: serializePublicPost(post) });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Unable to fetch post." });
@@ -390,7 +391,7 @@ export const updatePost = async (req, res) => {
 
     return res.status(200).json({
       message: "Post updated successfully.",
-      data: updatedPost,
+      data: serializePublicPost(updatedPost),
     });
   } catch (error) {
     console.error(error);
