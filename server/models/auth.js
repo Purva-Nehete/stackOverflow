@@ -23,6 +23,13 @@ const userschema = mongoose.Schema({
   subscriptionStartDate: { type: Date, default: null },
   subscriptionEndDate: { type: Date, default: null },
   cancelAtPeriodEnd: { type: Boolean, default: false },
+  role: {
+    type: String,
+    enum: ["user", "moderator", "admin"],
+    default: "user",
+  },
+  suspendedUntil: { type: Date, default: null },
+  suspensionReason: { type: String, default: "", trim: true, maxlength: 1000 },
   followersCount: { type: Number, default: 0, min: 0 },
   followingCount: { type: Number, default: 0, min: 0 },
 });
