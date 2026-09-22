@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Follow from "../models/follow.js";
 import user from "../models/auth.js";
+import { createNotification } from "../services/notification.js";
 
 const getUserId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -66,6 +67,12 @@ export const followUser = async (req, res) => {
         user.findByIdAndUpdate(req.userid, { $inc: { followingCount: 1 } }),
         user.findByIdAndUpdate(targetUser._id, { $inc: { followersCount: 1 } }),
       ]);
+      await createNotification({
+        recipientId: targetUser._id,
+        actorId: req.userid,
+        type: "follow",
+        message: "Someone started following you.",
+      });
     }
 
     const follower = await user.findById(req.userid).select("followingCount");

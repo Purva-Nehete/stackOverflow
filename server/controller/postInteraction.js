@@ -5,6 +5,7 @@ import PostBookmark from "../models/postBookmark.js";
 import PostShare from "../models/postShare.js";
 import PostComment from "../models/postComment.js";
 import user from "../models/auth.js";
+import { createNotification, notifyMentionedUsers } from "../services/notification.js";
 
 const parsePostId = (value) => mongoose.Types.ObjectId.isValid(value);
 
@@ -73,6 +74,13 @@ export const likePost = async (req, res) => {
     if (created) {
       await Post.findByIdAndUpdate(post._id, {
         $inc: { likeCount: 1, engagementScore: 1 },
+      });
+      await createNotification({
+        recipientId: post.authorId,
+        actorId: req.userid,
+        type: "like",
+        postId: post._id,
+        message: "Someone liked your post.",
       });
     }
 
@@ -235,6 +243,21 @@ export const createComment = async (req, res) => {
 
     await Post.findByIdAndUpdate(post._id, {
       $inc: { commentCount: 1, engagementScore: 2 },
+    });
+
+    await createNotification({
+      recipientId: parentComment?.authorId || post.authorId,
+      actorId: req.userid,
+      type: parentComment ? "reply" : "comment",
+      postId: post._id,
+      commentId: comment._id,
+      message: parentComment ? "Someone replied to your comment." : "Someone commented on your post.",
+    });
+    await notifyMentionedUsers({
+      content,
+      actorId: req.userid,
+      postId: post._id,
+      commentId: comment._id,
     });
 
     return res.status(201).json({ message: "Comment created.", data: comment });

@@ -12,6 +12,7 @@ import postroutes from "./routes/post.js";
 import feedroutes from "./routes/feed.js";
 import usersocialroutes from "./routes/userSocial.js";
 import hashtagroutes from "./routes/hashtag.js";
+import notificationroutes from "./routes/notification.js";
 
 const app = express();
 app.use(
@@ -40,6 +41,7 @@ app.use("/post", postroutes);
 app.use("/feed", feedroutes);
 app.use("/users", usersocialroutes);
 app.use("/hashtags", hashtagroutes);
+app.use("/notifications", notificationroutes);
 
 const PORT = process.env.PORT || 5000;
 const databaseurl = process.env.MONGODB_URL;

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Post from "../models/post.js";
 import user from "../models/auth.js";
 import Follow from "../models/follow.js";
+import { notifyMentionedUsers } from "../services/notification.js";
 
 const extractHashtags = (text = "") => {
   const matches = text.match(/#[\w-]+/g) || [];
@@ -214,6 +215,12 @@ export const createPost = async (req, res) => {
       bookmarkCount: 0,
       reportCount: 0,
       engagementScore: 0,
+    });
+
+    await notifyMentionedUsers({
+      content,
+      actorId: req.userid,
+      postId: newPost._id,
     });
 
     return res.status(201).json({
