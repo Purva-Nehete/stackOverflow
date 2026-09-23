@@ -14,6 +14,7 @@ import usersocialroutes from "./routes/userSocial.js";
 import hashtagroutes from "./routes/hashtag.js";
 import notificationroutes from "./routes/notification.js";
 import moderationroutes from "./routes/moderation.js";
+import communityFeature from "./middleware/communityFeature.js";
 
 const app = express();
 app.use(
@@ -38,6 +39,7 @@ app.use("/answer", answerroutes);
 app.use("/bookmark", bookmarkroutes);
 app.use("/subscription", subscriptionroutes);
 app.use("/payment", paymentroutes);
+app.use(["/post", "/feed", "/users", "/hashtags", "/notifications", "/moderation"], communityFeature);
 app.use("/post", postroutes);
 app.use("/feed", feedroutes);
 app.use("/users", usersocialroutes);

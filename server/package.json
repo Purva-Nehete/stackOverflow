@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test test/community.test.js",
+    "backfill:community": "node scripts/backfillCommunityDefaults.js",
+    "backfill:community:rollback": "node scripts/backfillCommunityDefaults.js --rollback",
     "dev": "nodemon index.js",
     "start": "node index.js"
   },
