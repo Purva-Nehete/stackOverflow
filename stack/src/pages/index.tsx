@@ -5,6 +5,7 @@ import axiosInstance from "@/lib/axiosinstance";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n/I18nContext";
 
 const questions = [
   {
@@ -68,6 +69,7 @@ const questions = [
   },
 ];
 export default function Home() {
+  const { t, formatDate } = useI18n();
   const [question, setquestion] = useState<any>(null);
   const [loading, setloading] = useState(true);
   const router = useRouter();
@@ -94,7 +96,7 @@ export default function Home() {
   if (!question || question.length === 0) {
     return (
       <Mainlayout>
-        <div className="text-center text-gray-500 mt-4">No question found.</div>
+        <div className="text-center text-gray-500 mt-4">{t("questions.none")}</div>
       </Mainlayout>
     );
   }
@@ -103,38 +105,38 @@ export default function Home() {
     <Mainlayout>
       <main className="min-w-0 p-4 lg:p-6 ">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-          <h1 className="text-xl lg:text-2xl font-semibold">Top Questions</h1>
+          <h1 className="text-xl lg:text-2xl font-semibold">{t("questions.top")}</h1>
           <button
             onClick={() => router.push("/ask")}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium whitespace-nowrap"
           >
-            Ask Question
+            {t("questions.ask")}
           </button>
         </div>
         <div className="w-full">
           <div className="flex flex-col sm:flex-row items-start sm:items-center mb-4 text-sm gap-2 sm:gap-4">
-            <span className="text-gray-600">{question.length} questions</span>
+            <span className="text-gray-600">{question.length} {t("questions.questions")}</span>
             <div className="flex flex-wrap gap-1 sm:gap-2">
               <button className="px-2 sm:px-3 py-1 bg-gray-200 text-gray-700 rounded text-xs sm:text-sm">
-                Newest
+                {t("questions.newest")}
               </button>
               <button className="px-2 sm:px-3 py-1 text-gray-600 hover:bg-gray-100 rounded text-xs sm:text-sm">
-                Active
+                {t("questions.active")}
               </button>
               <button className="px-2 sm:px-3 py-1 text-gray-600 hover:bg-gray-100 rounded flex items-center text-xs sm:text-sm">
-                Bountied
+                {t("questions.bountied")}
                 <Badge variant="secondary" className="ml-1 text-xs">
                   25
                 </Badge>
               </button>
               <button className="px-2 sm:px-3 py-1 text-gray-600 hover:bg-gray-100 rounded text-xs sm:text-sm">
-                Unanswered
+                {t("questions.unanswered")}
               </button>
               <button className="px-2 sm:px-3 py-1 text-gray-600 hover:bg-gray-100 rounded text-xs sm:text-sm">
-                More ▼
+                {t("common.more")} ▼
               </button>
               <button className="px-2 sm:px-3 py-1 border border-gray-300 text-gray-600 hover:bg-gray-50 rounded ml-auto text-xs sm:text-sm">
-                🔍 Filter
+                🔍 {t("common.filter")}
               </button>
             </div>
           </div>
@@ -147,7 +149,7 @@ export default function Home() {
                       <div className="font-medium">
                         {question.upvote.length}
                       </div>
-                      <div className="text-xs">votes</div>
+                      <div className="text-xs">{t("questions.votes")}</div>
                     </div>
                     <div className="text-center">
                       <div
@@ -206,7 +208,7 @@ export default function Home() {
                           </span>
                         </Link>
 
-                        <span>asked {new Date(question.askedon).toLocaleDateString()}</span>
+                        <span>{t("questions.asked")} {formatDate(question.askedon)}</span>
                       </div>
                     </div>
                   </div>

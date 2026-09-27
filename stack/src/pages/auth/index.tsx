@@ -13,10 +13,12 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { useI18n } from "@/lib/i18n/I18nContext";
 
 const index = () => {
   const router = useRouter();
   const { Login, loading } = useAuth();
+  const { t } = useI18n();
   const [form, setform] = useState({ email: "", password: "" });
   const handleChange = (e: any) => {
     setform({ ...form, [e.target.id]: e.target.value });
@@ -24,7 +26,7 @@ const index = () => {
   const handlesubmit = async (e: any) => {
     e.preventDefault();
     if (!form.email || !form.password) {
-      toast.error("ALL Fields are required");
+      toast.error(t("auth.fieldsRequired"));
       return;
     }
     try {
@@ -53,10 +55,10 @@ const index = () => {
           <Card>
             <CardHeader className="space-y-1 text-center">
               <CardTitle className="text-xl lg:text-2xl">
-                Log in to your account
+                {t("auth.loginTitle")}
               </CardTitle>
               <CardDescription>
-                Enter your email and password to access Stack Overflow
+                {t("auth.loginDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -82,7 +84,7 @@ const index = () => {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                Log in with Google
+                {t("auth.loginGoogle")}
               </Button>
               <Button
                 variant="outline"
@@ -99,7 +101,7 @@ const index = () => {
                     clipRule="evenodd"
                   />
                 </svg>
-                Log in with GitHub
+                {t("auth.loginGithub")}
               </Button>
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -107,14 +109,14 @@ const index = () => {
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-white px-2 text-muted-foreground">
-                    Or continue with
+                    {t("auth.orContinue")}
                   </span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm">
-                  Email
+                  {t("auth.email")}
                 </Label>
                 <Input
                   id="email"
@@ -126,7 +128,7 @@ const index = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm">
-                  Password
+                  {t("auth.password")}
                 </Label>
                 <Input
                   id="password"
@@ -139,17 +141,17 @@ const index = () => {
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-sm"
               >
-                {loading ? "loading" : "Log in"}
+                {loading ? t("common.loading") : t("navigation.login")}
               </Button>
               <div className="text-center text-sm">
                 <Link href="/forgot-password" className="text-blue-600 hover:underline">
-                  Forgot your password?
+                  {t("auth.forgotPassword")}
                 </Link>
               </div>
               <div className="text-center text-sm">
-                Don't have an account?{" "}
+                {t("auth.noAccount")}{" "}
                 <Link href="/signup" className="text-blue-600 hover:underline">
-                  Sign up
+                  {t("auth.signup")}
                 </Link>
               </div>
             </CardContent>

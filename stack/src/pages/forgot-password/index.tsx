@@ -13,12 +13,14 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { useI18n } from "@/lib/i18n/I18nContext";
 
 const ForgotPasswordPage = () => {
   const router = useRouter();
   const [form, setForm] = useState({ email: "", phone: "" });
   const [loading, setLoading] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
+  const { t } = useI18n();
 
   const handleChange = (e: any) => {
     setForm({ ...form, [e.target.id]: e.target.value });
@@ -33,17 +35,17 @@ const ForgotPasswordPage = () => {
     const phonePattern = /^\+?[\d\s().-]{7,20}$/;
 
     if (!email && !phone) {
-      toast.error("Please enter your email or phone number");
+      toast.error(t("forgot.emailOrPhoneRequired"));
       return;
     }
 
     if (email && !emailPattern.test(email)) {
-      toast.error("Please enter a valid email address");
+      toast.error(t("forgot.invalidEmail"));
       return;
     }
 
     if (phone && !phonePattern.test(phone)) {
-      toast.error("Please enter a valid phone number");
+      toast.error(t("forgot.invalidPhone"));
       return;
     }
 
@@ -60,9 +62,9 @@ const ForgotPasswordPage = () => {
         setGeneratedPassword(res.data.generatedPassword);
       }
 
-      toast.success(res.data?.message || "Password reset link processed successfully");
+      toast.success(res.data?.message || t("forgot.success"));
     } catch (error: any) {
-      const message = error.response?.data?.message || "Something went wrong";
+      const message = error.response?.data?.message || t("common.error");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -88,15 +90,15 @@ const ForgotPasswordPage = () => {
         <form onSubmit={handleSubmit}>
           <Card>
             <CardHeader className="space-y-1 text-center">
-              <CardTitle className="text-xl lg:text-2xl">Forgot password</CardTitle>
+              <CardTitle className="text-xl lg:text-2xl">{t("forgot.title")}</CardTitle>
               <CardDescription>
-                Enter your registered email address or phone number to reset your password.
+                {t("forgot.description")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm">
-                  Email address
+                  {t("auth.email")}
                 </Label>
                 <Input
                   id="email"
@@ -112,13 +114,13 @@ const ForgotPasswordPage = () => {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-muted-foreground">or</span>
+                  <span className="bg-white px-2 text-muted-foreground">{t("common.or")}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone" className="text-sm">
-                  Phone number
+                  {t("auth.phone")}
                 </Label>
                 <Input
                   id="phone"
@@ -134,12 +136,12 @@ const ForgotPasswordPage = () => {
                 className="w-full bg-blue-600 hover:bg-blue-700 text-sm"
                 disabled={loading}
               >
-                {loading ? "Processing..." : "Reset password"}
+                {loading ? t("common.processing") : t("forgot.reset")}
               </Button>
 
               {generatedPassword && (
                 <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-                  <p className="font-medium">Your new password:</p>
+                  <p className="font-medium">{t("forgot.newPassword")}</p>
                   <p className="mt-1 break-all font-semibold">{generatedPassword}</p>
                 </div>
               )}
@@ -150,7 +152,7 @@ const ForgotPasswordPage = () => {
                   className="text-blue-600 hover:underline"
                   onClick={() => router.push("/auth")}
                 >
-                  Back to login
+                  {t("forgot.backToLogin")}
                 </button>
               </div>
             </CardContent>

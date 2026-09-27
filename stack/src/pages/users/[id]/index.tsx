@@ -19,6 +19,7 @@ import { Calendar, Edit, Plus, X } from "lucide-react";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { useI18n } from "@/lib/i18n/I18nContext";
 const getUserData = (id: string) => {
   const users = {
     "1": {
@@ -41,6 +42,7 @@ const getUserData = (id: string) => {
 };
 const index = () => {
   const { user } = useAuth();
+  const { t, formatDate } = useI18n();
   const router = useRouter();
   const { id } = router.query;
   const [users, setusers] = useState<any>(null);
@@ -75,7 +77,7 @@ const index = () => {
     );
   }
   if (!users || users.length === 0) {
-    return <div className="text-center text-gray-500 mt-4">No user found.</div>;
+    return <div className="text-center text-gray-500 mt-4">{t("users.none")}</div>;
   }
 
   const handleSaveProfile = async () => {
@@ -93,11 +95,11 @@ const index = () => {
 
         setusers(updatedUser);
         setIsEditing(false);
-        toast.success("Profile updated successfully!");
+        toast.success(t("profile.updated"));
       }
     } catch (error) {
       console.log(error);
-      toast.error("Something went wrong");
+      toast.error(t("common.error"));
     }
   };
 
@@ -148,22 +150,22 @@ const index = () => {
                       className="flex items-center gap-2 bg-transparent"
                     >
                       <Edit className="w-4 h-4" />
-                      Edit Profile
+                      {t("profile.edit")}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white text-gray-900">
                     <DialogHeader>
-                      <DialogTitle>Edit Profile</DialogTitle>
+                      <DialogTitle>{t("profile.edit")}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-6 py-4">
                       {/* Basic Information */}
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold">
-                          Basic Information
+                          {t("profile.basicInformation")}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor="name">Display Name</Label>
+                            <Label htmlFor="name">{t("auth.displayName")}</Label>
                             <Input
                               id="name"
                               value={editForm.name}
@@ -173,16 +175,16 @@ const index = () => {
                                   name: e.target.value,
                                 })
                               }
-                              placeholder="Your display name"
+                              placeholder={t("auth.displayNamePlaceholder")}
                             />
                           </div>
                         </div>
                       </div>
                       {/* About Section */}
                       <div className="space-y-4">
-                        <h3 className="text-lg font-semibold">About</h3>
+                        <h3 className="text-lg font-semibold">{t("profile.about")}</h3>
                         <div>
-                          <Label htmlFor="about">About Me</Label>
+                          <Label htmlFor="about">{t("profile.aboutMe")}</Label>
                           <Textarea
                             id="about"
                             value={editForm.about}
@@ -192,7 +194,7 @@ const index = () => {
                                 about: e.target.value,
                               })
                             }
-                            placeholder="Tell us about yourself, your experience, and interests..."
+                            placeholder={t("profile.aboutPlaceholder")}
                             className="min-h-32"
                           />
                         </div>
@@ -201,7 +203,7 @@ const index = () => {
                       {/* Tags/Skills Section */}
                       <div className="space-y-4">
                         <h3 className="text-lg font-semibold">
-                          Skills & Technologies
+                          {t("profile.skills")}
                         </h3>
 
                         <div className="space-y-3">
@@ -209,7 +211,7 @@ const index = () => {
                             <Input
                               value={newTag}
                               onChange={(e) => setNewTag(e.target.value)}
-                              placeholder="Add a skill or technology"
+                              placeholder={t("profile.skillPlaceholder")}
                               onKeyPress={(e) =>
                                 e.key === "Enter" && handleAddTag()
                               }
@@ -253,13 +255,13 @@ const index = () => {
                           onClick={() => setIsEditing(false)}
                           className="bg-white text-gray-800 hover:text-gray-900"
                         >
-                          Cancel
+                          {t("common.cancel")}
                         </Button>
                         <Button
                           onClick={handleSaveProfile}
                           className="bg-blue-600 hover:bg-blue-700"
                         >
-                          Save Changes
+                          {t("profile.save")}
                         </Button>
                       </div>
                     </div>
@@ -270,25 +272,24 @@ const index = () => {
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
               <div className="flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
-                Member since{" "}
-                {new Date(users.joinDate).toISOString().split("T")[0]}
+                {t("profile.memberSince")} {formatDate(users.joinDate)}
               </div>
             </div>
             <div className="flex flex-wrap items-center space-x-6 text-sm">
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
                 <span className="font-semibold">5</span>
-                <span className="text-gray-600 ml-1">gold badges</span>
+                <span className="text-gray-600 ml-1">{t("profile.goldBadges")}</span>
               </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
                 <span className="font-semibold">23</span>
-                <span className="text-gray-600 ml-1">silver badges</span>
+                <span className="text-gray-600 ml-1">{t("profile.silverBadges")}</span>
               </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 bg-amber-600 rounded-full mr-2"></div>
                 <span className="font-semibold">45</span>
-                <span className="text-gray-600 ml-1">bronze badges</span>
+                <span className="text-gray-600 ml-1">{t("profile.bronzeBadges")}</span>
               </div>
             </div>
           </div>
@@ -297,7 +298,7 @@ const index = () => {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>About</CardTitle>
+                <CardTitle>{t("profile.about")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="prose max-w-none">
@@ -311,7 +312,7 @@ const index = () => {
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Top Tags</CardTitle>
+                <CardTitle>{t("profile.topTags")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">

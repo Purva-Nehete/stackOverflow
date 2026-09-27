@@ -20,12 +20,12 @@ import { useRouter } from "next/router";
 import axiosInstance from "@/lib/axiosinstance";
 import Mainlayout from "@/layout/Mainlayout";
 import { useAuth } from "@/lib/AuthContext";
+import { useI18n } from "@/lib/i18n/I18nContext";
 const questionData = {
   id: 3,
   title: "How can i block user with middleware?",
   content: `
 ## The problem
-
 I am trying to create a complete user login form in NextJS and I want to block the user to go to other pages without a login process before. So online i found that one of the most complete solution could be the use of a middleware but i don't know how it doesn't work.
 
 ## Middleware code:
@@ -250,6 +250,7 @@ This approach is more robust and handles many edge cases automatically.`,
   },
 ];
 const QuestionDetail = ({ questionId }: any) => {
+  const { t, formatDate } = useI18n();
   const router = useRouter();
   const [question, setquestion] = useState<any>(null);
   const [answer, setanswer] = useState<any>();
@@ -287,7 +288,7 @@ const QuestionDetail = ({ questionId }: any) => {
 
   const handleVote = async (vote: String) => {
     if(!user){
-      toast.info("Please login to continue")
+        toast.info(t("auth.loginRequired"))
       router.push("/auth")
       return
     }
@@ -302,7 +303,7 @@ const QuestionDetail = ({ questionId }: any) => {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to Vote question");
+      toast.error(t("question.voteFailed"));
     }
   };
   const handlebookmark = () => {
@@ -338,11 +339,11 @@ const QuestionDetail = ({ questionId }: any) => {
           noofanswer: prev.noofanswer + 1,
           answer: [...(prev.answer || []), newObj],
         }));
-        toast.success("Answer Uploaded");
+        toast.success(t("question.answerUploaded"));
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to Answer");
+      toast.error(t("question.answerFailed"));
     } finally {
       setnewAnswer("");
       setisSubmitting(false);
@@ -354,7 +355,7 @@ const QuestionDetail = ({ questionId }: any) => {
       router.push("/auth")
       return
     }
-    if (!window.confirm("Are you sure you want to delete this question?"))
+    if (!window.confirm(t("question.deleteConfirm")))
       return;
     try {
       const res = await axiosInstance.delete(
@@ -366,7 +367,7 @@ const QuestionDetail = ({ questionId }: any) => {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to delete question");
+      toast.error(t("question.deleteFailed"));
     }
   };
   const handleDeleteanswer = async (id: String) => {
@@ -375,7 +376,7 @@ const QuestionDetail = ({ questionId }: any) => {
       router.push("/auth")
       return
     }
-    if (!window.confirm("Are you sure you want to delete this answer?"))
+    if (!window.confirm(t("question.deleteAnswerConfirm")))
       return;
     try {
       const res = await axiosInstance.delete(`/answer/delete/${question._id}`, {
@@ -393,11 +394,11 @@ const QuestionDetail = ({ questionId }: any) => {
           noofanswer: updateanswer.length,
           answer: updateanswer,
         }));
-        toast.success("deleted successfully");
+        toast.success(t("common.deleted"));
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to delete question");
+      toast.error(t("question.deleteFailed"));
     }
   };
 
@@ -412,7 +413,7 @@ const QuestionDetail = ({ questionId }: any) => {
         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
           <div className="flex items-center gap-1">
             <Clock className="w-4 h-4" />
-            <span>Asked {new Date(question.askedon).toLocaleDateString()}</span>
+            <span>{t("questions.asked")} {formatDate(question.askedon)}</span>
           </div>
         </div>
       </div>
@@ -513,7 +514,7 @@ const QuestionDetail = ({ questionId }: any) => {
                     className="text-gray-600 hover:text-gray-800"
                   >
                     <Share className="w-4 h-4 mr-1" />
-                    Share
+                    {t("question.share")}
                   </Button>
                   <Button
                     variant="ghost"
@@ -521,7 +522,7 @@ const QuestionDetail = ({ questionId }: any) => {
                     className="text-gray-600 hover:text-gray-800"
                   >
                     <Flag className="w-4 h-4 mr-1" />
-                    Flag
+                    {t("question.flag")}
                   </Button>
                   {question.userid === user?._id && (
                     <Button
@@ -531,7 +532,7 @@ const QuestionDetail = ({ questionId }: any) => {
                       className="text-red-600 hover:text-red-800"
                     >
                       <Trash className="w-4 h-4 mr-1" />
-                      Delete
+                      {t("common.delete")}
                     </Button>
                   )}
                 </div>
@@ -608,7 +609,7 @@ const QuestionDetail = ({ questionId }: any) => {
                           className="text-gray-600 hover:text-gray-800"
                         >
                           <Share className="w-4 h-4 mr-1" />
-                          Share
+                          {t("question.share")}
                         </Button>
                         <Button
                           variant="ghost"
@@ -616,7 +617,7 @@ const QuestionDetail = ({ questionId }: any) => {
                           className="text-gray-600 hover:text-gray-800"
                         >
                           <Flag className="w-4 h-4 mr-1" />
-                          Flag
+                          {t("question.flag")}
                         </Button>
                         {ans.userid === user?._id && (
                           <Button
@@ -626,13 +627,13 @@ const QuestionDetail = ({ questionId }: any) => {
                             className="text-red-600 hover:text-red-800"
                           >
                             <Trash className="w-4 h-4 mr-1" />
-                            Delete
+                            {t("common.delete")}
                           </Button>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-gray-600">
-                          answerd {ans.answeredon}
+                          answered {formatDate(ans.answeredon)}
                         </span>
                         <Link
                           href={`/users/${ans.userid}`}
@@ -661,10 +662,10 @@ const QuestionDetail = ({ questionId }: any) => {
       <Card>
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold mb-4 text-gray-900">
-            Your Answer
+            {t("question.yourAnswer")}
           </h3>
           <Textarea
-            placeholder="Write your answer here... You can use Markdown formatting."
+            placeholder={t("question.answerPlaceholder")}
             value={newanswer}
             onChange={(e) => setnewAnswer(e.target.value)}
             className="min-h-32 mb-4 resize-none"
@@ -675,7 +676,7 @@ const QuestionDetail = ({ questionId }: any) => {
               disabled={!newanswer.trim() || isSubmitting}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isSubmitting ? "Posting..." : "Post Your Answer"}
+              {isSubmitting ? t("question.posting") : t("question.postAnswer")}
             </Button>
             <p className="text-sm text-gray-600">
               By posting your answer, you agree to the{" "}

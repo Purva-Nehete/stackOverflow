@@ -5,6 +5,7 @@ import axiosInstance from "@/lib/axiosinstance";
 import { Calendar, Search } from "lucide-react";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n/I18nContext";
 const users = [
   {
     id: 1,
@@ -32,6 +33,7 @@ const users = [
   },
 ];
 const index = () => {
+  const { t } = useI18n();
   const [users, setusers] = useState<any>(null);
   const [loading, setloading] = useState(true);
   useEffect(() => {
@@ -56,18 +58,18 @@ const index = () => {
   }
   if (!users || users.length === 0) {
     return (
-      <div className="text-center text-gray-500 mt-4">No users found.</div>
+      <div className="text-center text-gray-500 mt-4">{t("users.none")}</div>
     );
   }
   return (
     <Mainlayout>
       <div className="max-w-6xl">
-        <h1 className="text-xl lg:text-2xl font-semibold mb-6">Users</h1>
+        <h1 className="text-xl lg:text-2xl font-semibold mb-6">{t("users.title")}</h1>
 
         <div className="mb-6">
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input placeholder="Filter by user" className="pl-10" />
+            <Input placeholder={t("users.filter")} className="pl-10" />
           </div>
         </div>
 
@@ -96,7 +98,7 @@ const index = () => {
 
                 <div className="flex items-center text-sm text-gray-600 mb-3">
                   <Calendar className="w-4 h-4 mr-1" />
-                  <span>Joined {new Date(user.joinDate).getFullYear()}</span>
+                  <span>{t("users.joined")} {new Date(user.joinDate).getFullYear()}</span>
                 </div>
               </div>
             </Link>

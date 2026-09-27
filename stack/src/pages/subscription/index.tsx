@@ -8,6 +8,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { useI18n } from "@/lib/i18n/I18nContext";
 
 type Plan = {
   key: string;
@@ -45,6 +46,7 @@ declare global {
 }
 
 const Subscription = () => {
+  const { t } = useI18n();
   const { user, subscription, refreshSubscription } = useAuth();
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -155,9 +157,9 @@ const Subscription = () => {
     <Mainlayout>
       <div className="max-w-6xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Upgrade Your Plan</h1>
+          <h1 className="text-3xl font-bold mb-2">{t("subscription.upgrade")}</h1>
           <p className="text-gray-600">
-            Choose a plan that fits your needs and unlock premium features.
+            {t("subscription.description")}
           </p>
         </div>
 
@@ -173,12 +175,12 @@ const Subscription = () => {
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-xl">{plan.name}</CardTitle>
                   {subscription?.plan === plan.key && (
-                    <Badge className="bg-green-500">Current</Badge>
+                    <Badge className="bg-green-500">{t("subscription.current")}</Badge>
                   )}
                 </div>
                 <CardDescription className="text-2xl font-bold mt-2">
                   ₹{plan.price}
-                  <span className="text-sm text-gray-500">/month</span>
+                  <span className="text-sm text-gray-500">{t("subscription.month")}</span>
                 </CardDescription>
               </CardHeader>
 
@@ -188,50 +190,50 @@ const Subscription = () => {
                     <Check className="w-5 h-5 text-green-500" />
                     <span className="text-sm">
                       {!Number.isFinite(plan.dailyQuestionLimit)
-                        ? "Unlimited questions"
-                        : `${plan.dailyQuestionLimit} questions/day`}
+                        ? t("subscription.unlimitedQuestions")
+                        : `${plan.dailyQuestionLimit} ${t("subscription.questionsDay")}`}
                     </span>
                   </div>
 
                   {plan.features.advancedSearch && (
                     <div className="flex items-center gap-2">
                       <Check className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">Advanced search</span>
+                      <span className="text-sm">{t("subscription.advancedSearch")}</span>
                     </div>
                   )}
 
                   {plan.badge && (
                     <div className="flex items-center gap-2">
                       <Check className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">{plan.badge} badge</span>
+                      <span className="text-sm">{plan.badge} {t("subscription.badge")}</span>
                     </div>
                   )}
 
                   {plan.features.prioritySupport && (
                     <div className="flex items-center gap-2">
                       <Check className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">Priority support</span>
+                      <span className="text-sm">{t("subscription.prioritySupport")}</span>
                     </div>
                   )}
 
                   {plan.features.enhancedVisibility && (
                     <div className="flex items-center gap-2">
                       <Check className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">Enhanced visibility</span>
+                      <span className="text-sm">{t("subscription.enhancedVisibility")}</span>
                     </div>
                   )}
 
                   {plan.features.unlimitedBookmarks && (
                     <div className="flex items-center gap-2">
                       <Check className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">Unlimited bookmarks</span>
+                      <span className="text-sm">{t("subscription.unlimitedBookmarks")}</span>
                     </div>
                   )}
 
                   {plan.features.exclusiveCommunity && (
                     <div className="flex items-center gap-2">
                       <Check className="w-5 h-5 text-green-500" />
-                      <span className="text-sm">Exclusive community</span>
+                      <span className="text-sm">{t("subscription.exclusiveCommunity")}</span>
                     </div>
                   )}
                 </div>
@@ -242,7 +244,7 @@ const Subscription = () => {
                   className="w-full"
                   variant={subscription?.plan === plan.key ? "outline" : "default"}
                 >
-                  {processingPlan === plan.key ? "Opening checkout..." : subscription?.plan === plan.key ? "Current Plan" : "Upgrade"}
+                  {processingPlan === plan.key ? t("subscription.openingCheckout") : subscription?.plan === plan.key ? t("subscription.currentPlan") : t("subscription.upgrade")}
                 </Button>
               </CardContent>
             </Card>

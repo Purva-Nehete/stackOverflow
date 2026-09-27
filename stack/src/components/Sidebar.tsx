@@ -14,8 +14,10 @@ import {
 import Link from "next/link";
 import React from "react";
 import { Badge } from "./ui/badge";
+import { useI18n } from "@/lib/i18n/I18nContext";
 
 const Sidebar = ({ isopen }: any) => {
+  const { t } = useI18n();
   return (
     <div>
       <aside
@@ -32,7 +34,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <Home className="w-4 h-4 mr-2 lg:mr-3" />
-                Home
+                {t("navigation.home")}
               </Link>
             </li>
             <li>
@@ -41,7 +43,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <MessageSquareIcon className="w-4 h-4 mr-2 lg:mr-3" />
-                Questions
+                {t("navigation.questions")}
               </Link>
             </li>
             <li>
@@ -50,9 +52,9 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <Bot className="w-4 h-4 mr-2 lg:mr-3" />
-                AI Assist
+                {t("navigation.aiAssist")}
                 <Badge variant="secondary" className="ml-auto text-xs">
-                  Labs
+                  {t("navigation.labs")}
                 </Badge>
               </Link>
             </li>
@@ -62,7 +64,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <Tag className="w-4 h-4 mr-2 lg:mr-3" />
-                Tags
+                {t("navigation.tags")}
               </Link>
             </li>
             <li>
@@ -71,7 +73,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <Users className="w-4 h-4 mr-2 lg:mr-3" />
-                Users
+                {t("navigation.users")}
               </Link>
             </li>
             <li>
@@ -80,7 +82,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <Bookmark className="w-4 h-4 mr-2 lg:mr-3" />
-                Saves
+                {t("navigation.saves")}
               </Link>
             </li>
             <li>
@@ -89,12 +91,12 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <Trophy className="w-4 h-4 mr-2 lg:mr-3" />
-                Challenges
+                {t("navigation.challenges")}
                 <Badge
                   variant="secondary"
                   className="ml-auto text-xs bg-orange-100 text-orange-800"
                 >
-                  NEW
+                  {t("common.new")}
                 </Badge>
               </Link>
             </li>
@@ -104,7 +106,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <MessageSquare className="w-4 h-4 mr-2 lg:mr-3" />
-                Chat
+                {t("navigation.chat")}
               </Link>
             </li>
             <li>
@@ -113,7 +115,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <FileText className="w-4 h-4 mr-2 lg:mr-3" />
-                Articles
+                {t("navigation.articles")}
               </Link>
             </li>
 
@@ -123,7 +125,7 @@ const Sidebar = ({ isopen }: any) => {
                 className="flex items-center px-2 py-2 text-gray-700 hover:bg-gray-100 rounded text-sm"
               >
                 <Building className="w-4 h-4 mr-2 lg:mr-3" />
-                Companies
+                {t("navigation.companies")}
               </Link>
             </li>
           </ul>

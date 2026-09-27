@@ -8,6 +8,7 @@ import { Calendar, CreditCard, Download } from "lucide-react";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { useI18n } from "@/lib/i18n/I18nContext";
 
 type Subscription = {
   plan: string;
@@ -28,6 +29,7 @@ type Payment = {
 };
 
 const BillingDashboard = () => {
+  const { t, formatDate } = useI18n();
   const { user, subscription, subscriptionLoading, refreshSubscription } = useAuth();
   const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -53,13 +55,13 @@ const BillingDashboard = () => {
   };
 
   const handleCancel = async () => {
-    if (window.confirm("Are you sure? You will retain access until the billing period ends.")) {
+    if (window.confirm(t("billing.cancelConfirm"))) {
       try {
         await axiosInstance.patch("/subscription/cancel");
-        toast.success("Subscription cancelled");
+        toast.success(t("billing.cancelled"));
         await refreshSubscription();
       } catch (error) {
-        toast.error("Failed to cancel subscription");
+        toast.error(t("billing.cancelFailed"));
       }
     }
   };
@@ -81,7 +83,7 @@ const BillingDashboard = () => {
       link.click();
       URL.revokeObjectURL(downloadUrl);
     } catch (error) {
-      toast.error("Unable to download invoice");
+      toast.error(t("billing.invoiceFailed"));
     }
   };
 
@@ -96,18 +98,18 @@ const BillingDashboard = () => {
   return (
     <Mainlayout>
       <div className="max-w-6xl">
-        <h1 className="text-3xl font-bold mb-8">Billing & Subscription</h1>
+        <h1 className="text-3xl font-bold mb-8">{t("billing.title")}</h1>
 
         {/* Current Subscription */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle>Current Subscription</CardTitle>
-              <CardDescription>Your active plan and subscription details</CardDescription>
+              <CardTitle>{t("billing.currentSubscription")}</CardTitle>
+              <CardDescription>{t("billing.currentDescription")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <label className="text-sm text-gray-500">Plan</label>
+                <label className="text-sm text-gray-500">{t("subscription.plan")}</label>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-2xl font-bold capitalize">{subscription?.plan}</span>
                   <Badge className="bg-blue-500 capitalize">{subscription?.plan || "free"}</Badge>
@@ -116,34 +118,32 @@ const BillingDashboard = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-500">Status</label>
+                  <label className="text-sm text-gray-500">{t("billing.status")}</label>
                   <p className="text-lg font-semibold capitalize mt-1">
                     {subscription?.status || "inactive"}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500">Start Date</label>
+                  <label className="text-sm text-gray-500">{t("billing.startDate")}</label>
                   <p className="text-lg font-semibold mt-1">
                     {subscription?.currentPeriodStart
-                      ? new Date(subscription.currentPeriodStart).toLocaleDateString()
-                      : "N/A"}
+                      ? formatDate(subscription.currentPeriodStart)
+                      : t("common.notAvailable")}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500">Renewal Date</label>
+                  <label className="text-sm text-gray-500">{t("billing.renewalDate")}</label>
                   <p className="text-lg font-semibold mt-1">
                     {subscription?.currentPeriodEnd
-                      ? new Date(subscription.currentPeriodEnd).toLocaleDateString()
-                      : "N/A"}
+                      ? formatDate(subscription.currentPeriodEnd)
+                      : t("common.notAvailable")}
                   </p>
                 </div>
               </div>
 
               {subscription?.cancelAtPeriodEnd && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">
-                    This subscription will be cancelled at the end of the billing period.
-                  </p>
+                  <p className="text-sm text-yellow-800">{t("billing.cancelAtPeriodEnd")}</p>
                 </div>
               )}
 
@@ -175,22 +175,22 @@ const BillingDashboard = () => {
           {/* Quick Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Billing Info</CardTitle>
+                <CardTitle className="text-lg">{t("billing.info")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-blue-500" />
                 <div className="text-sm">
-                  <p className="text-gray-500">Billing Email</p>
+                  <p className="text-gray-500">{t("billing.email")}</p>
                   <p className="font-semibold">{user?.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-500" />
                 <div className="text-sm">
-                  <p className="text-gray-500">Member Since</p>
+                  <p className="text-gray-500">{t("billing.memberSince")}</p>
                   <p className="font-semibold">
-                    {user?.joinDate ? new Date(user.joinDate).toLocaleDateString() : "N/A"}
+                    {user?.joinDate ? formatDate(user.joinDate) : t("common.notAvailable")}
                   </p>
                 </div>
               </div>
@@ -202,19 +202,19 @@ const BillingDashboard = () => {
         {payments.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>Your recent transactions and invoices</CardDescription>
+              <CardTitle>{t("billing.paymentHistory")}</CardTitle>
+              <CardDescription>{t("billing.paymentDescription")}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      <th className="text-left py-3 px-4">Date</th>
-                      <th className="text-left py-3 px-4">Plan</th>
-                      <th className="text-left py-3 px-4">Amount</th>
-                      <th className="text-left py-3 px-4">Status</th>
-                      <th className="text-left py-3 px-4">Invoice</th>
+                      <th className="text-left py-3 px-4">{t("billing.date")}</th>
+                      <th className="text-left py-3 px-4">{t("subscription.plan")}</th>
+                      <th className="text-left py-3 px-4">{t("billing.amount")}</th>
+                      <th className="text-left py-3 px-4">{t("billing.status")}</th>
+                      <th className="text-left py-3 px-4">{t("billing.invoice")}</th>
                     </tr>
                   </thead>
                   <tbody>
