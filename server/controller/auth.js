@@ -181,6 +181,15 @@ const setUserLanguageOtp = async ({ userDoc, language, otp, channel }) => {
   await userDoc.save();
 };
 
+const clearLanguageOtp = (userDoc) => {
+  userDoc.pendingLanguageChange = null;
+  userDoc.languageOtpHash = null;
+  userDoc.languageOtpChannel = null;
+  userDoc.languageOtpRequestedAt = null;
+  userDoc.languageOtpExpiry = null;
+  userDoc.languageOtpAttempts = 0;
+};
+
 export const requestLanguageChangeOtp = async (req, res) => {
   const { preferredLanguage } = req.body || {};
 
@@ -201,6 +210,30 @@ export const requestLanguageChangeOtp = async (req, res) => {
       return res.status(400).json({ message: "Unsupported language selected." });
     }
 
+    const now = Date.now();
+    const requestWindowStartedAt = currentUser.languageOtpRequestWindowStartedAt
+      ? new Date(currentUser.languageOtpRequestWindowStartedAt).getTime()
+      : 0;
+    const requestWindowExpired =
+      !requestWindowStartedAt || now - requestWindowStartedAt >= 60 * 60 * 1000;
+
+    if (requestWindowExpired) {
+      currentUser.languageOtpRequestWindowStartedAt = new Date(now);
+      currentUser.languageOtpRequestCount = 0;
+    }
+
+    if (
+      currentUser.languageOtpRequestedAt &&
+      now - new Date(currentUser.languageOtpRequestedAt).getTime() <
+        languageRules.otp.resendCooldownSeconds * 1000
+    ) {
+      return res.status(429).json({ message: "Please wait before requesting another code." });
+    }
+
+    if (currentUser.languageOtpRequestCount >= languageRules.otp.maxRequestsPerHour) {
+      return res.status(429).json({ message: "Too many verification requests. Please try again later." });
+    }
+
     if (channel === "email" && !currentUser.email) {
       return res.status(400).json({ message: "Email verification unavailable." });
     }
@@ -217,6 +250,8 @@ export const requestLanguageChangeOtp = async (req, res) => {
       otp,
       channel,
     });
+    currentUser.languageOtpRequestCount += 1;
+    await currentUser.save();
 
     if (channel === "email") {
       await sendLanguageVerificationEmail({
@@ -272,23 +307,13 @@ export const updatePreferredLanguage = async (req, res) => {
     }
 
     if (new Date() > new Date(currentUser.languageOtpExpiry)) {
-      currentUser.pendingLanguageChange = null;
-      currentUser.languageOtpHash = null;
-      currentUser.languageOtpChannel = null;
-      currentUser.languageOtpRequestedAt = null;
-      currentUser.languageOtpExpiry = null;
-      currentUser.languageOtpAttempts = 0;
+      clearLanguageOtp(currentUser);
       await currentUser.save();
       return res.status(400).json({ message: "OTP expired." });
     }
 
     if (currentUser.languageOtpAttempts >= languageRules.otp.maxAttempts) {
-      currentUser.pendingLanguageChange = null;
-      currentUser.languageOtpHash = null;
-      currentUser.languageOtpChannel = null;
-      currentUser.languageOtpRequestedAt = null;
-      currentUser.languageOtpExpiry = null;
-      currentUser.languageOtpAttempts = 0;
+      clearLanguageOtp(currentUser);
       await currentUser.save();
       return res.status(400).json({ message: "Maximum OTP attempts exceeded." });
     }
