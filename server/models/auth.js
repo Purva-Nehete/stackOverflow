@@ -4,6 +4,11 @@ const userschema = mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, lowercase: true, trim: true },
   phone: { type: String, trim: true },
+  preferredLanguage: {
+    type: String,
+    enum: ["en", "es", "hi", "pt", "zh", "fr"],
+    default: "en",
+  },
   password: { type: String, required: true },
   about: { type: String },
   tags: { type: [String] },

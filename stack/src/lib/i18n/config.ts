@@ -22,6 +22,19 @@ export const getInitialLocale = (): Locale => {
     return defaultLocale;
   }
 
+  try {
+    const storedUser = window.localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      const persistedLocale = parsedUser?.preferredLanguage;
+      if (isSupportedLocale(persistedLocale)) {
+        return persistedLocale;
+      }
+    }
+  } catch {
+    // ignore malformed local storage data and continue with the safe fallback flow
+  }
+
   const storedLocale = window.localStorage.getItem("locale");
   if (isSupportedLocale(storedLocale)) {
     return storedLocale;

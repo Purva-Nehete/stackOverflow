@@ -3,6 +3,7 @@ import { randomInt } from "node:crypto";
 import user from "../models/auth.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { isSupportedLanguage } from "../config/languageRules.js";
 
 export const generateRandomPassword = (length = 12) => {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -134,6 +135,52 @@ export const ForgotPassword = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+
+export const getCurrentUserLanguage = async (req, res) => {
+  try {
+    const currentUser = await user.findById(req.userid).select("preferredLanguage");
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      data: {
+        preferredLanguage: currentUser.preferredLanguage || "en",
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+
+export const updatePreferredLanguage = async (req, res) => {
+  const { preferredLanguage } = req.body || {};
+
+  if (!preferredLanguage || !isSupportedLanguage(preferredLanguage)) {
+    return res.status(400).json({ message: "Unsupported language selected." });
+  }
+
+  try {
+    const currentUser = await user.findById(req.userid);
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    currentUser.preferredLanguage = preferredLanguage;
+    await currentUser.save();
+
+    return res.status(200).json({
+      message: "Language preference updated.",
+      data: {
+        preferredLanguage: currentUser.preferredLanguage,
+      },
+    });
+  } catch (error) {
     return res.status(500).json({ message: "Something went wrong." });
   }
 };
