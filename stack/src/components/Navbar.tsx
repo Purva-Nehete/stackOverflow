@@ -41,6 +41,14 @@ const Navbar = ({ handleslidein }: any) => {
               >
                 {t("navigation.community")}
               </Link>
+              {user ? (
+                <Link
+                  href="/settings"
+                  className="text-sm text-[#454545] font-medium px-4 py-2 rounded hover:bg-gray-200 transition"
+                >
+                  {t("settings.language")}
+                </Link>
+              ) : null}
             {["About", "Products", "For Teams"].map((item) => (
               <Link
                 key={item}

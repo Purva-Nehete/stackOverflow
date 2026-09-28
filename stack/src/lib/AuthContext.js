@@ -25,6 +25,31 @@ export const AuthProvider = ({ children }) => {
   const [subscription, setSubscription] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
+  const updateUser = (updatedFields) => {
+    setUser((currentUser) => {
+      const nextUser = {
+        ...(currentUser || {}),
+        ...updatedFields,
+      };
+
+      if (typeof window !== "undefined") {
+        const savedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
+        const mergedUser = {
+          ...savedUser,
+          ...nextUser,
+        };
+
+        if (token) {
+          mergedUser.token = token;
+        }
+
+        localStorage.setItem("user", JSON.stringify(mergedUser));
+      }
+
+      return nextUser;
+    });
+  };
+
   const refreshSubscription = async () => {
     if (!token) {
       setSubscription(null);
@@ -105,6 +130,7 @@ export const AuthProvider = ({ children }) => {
         Signup,
         Login,
         Logout,
+        updateUser,
         loading,
         error,
       }}
