@@ -246,10 +246,14 @@ export const requestLanguageChangeOtp = async (req, res) => {
 };
 
 export const updatePreferredLanguage = async (req, res) => {
-  const { preferredLanguage } = req.body || {};
+  const { preferredLanguage, otp } = req.body || {};
 
   if (!preferredLanguage || !isSupportedLanguage(preferredLanguage)) {
     return res.status(400).json({ message: "Unsupported language selected." });
+  }
+
+  if (!otp || typeof otp !== "string") {
+    return res.status(400).json({ message: "OTP is required to change language." });
   }
 
   try {
@@ -259,7 +263,51 @@ export const updatePreferredLanguage = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    if (!currentUser.pendingLanguageChange || currentUser.pendingLanguageChange !== preferredLanguage) {
+      return res.status(400).json({ message: "No pending language change found." });
+    }
+
+    if (!currentUser.languageOtpHash || !currentUser.languageOtpExpiry) {
+      return res.status(400).json({ message: "Language verification expired or missing." });
+    }
+
+    if (new Date() > new Date(currentUser.languageOtpExpiry)) {
+      currentUser.pendingLanguageChange = null;
+      currentUser.languageOtpHash = null;
+      currentUser.languageOtpChannel = null;
+      currentUser.languageOtpRequestedAt = null;
+      currentUser.languageOtpExpiry = null;
+      currentUser.languageOtpAttempts = 0;
+      await currentUser.save();
+      return res.status(400).json({ message: "OTP expired." });
+    }
+
+    if (currentUser.languageOtpAttempts >= languageRules.otp.maxAttempts) {
+      currentUser.pendingLanguageChange = null;
+      currentUser.languageOtpHash = null;
+      currentUser.languageOtpChannel = null;
+      currentUser.languageOtpRequestedAt = null;
+      currentUser.languageOtpExpiry = null;
+      currentUser.languageOtpAttempts = 0;
+      await currentUser.save();
+      return res.status(400).json({ message: "Maximum OTP attempts exceeded." });
+    }
+
+    const isOtpCorrect = await bcrypt.compare(otp, currentUser.languageOtpHash);
+
+    if (!isOtpCorrect) {
+      currentUser.languageOtpAttempts += 1;
+      await currentUser.save();
+      return res.status(400).json({ message: "Invalid OTP." });
+    }
+
     currentUser.preferredLanguage = preferredLanguage;
+    currentUser.pendingLanguageChange = null;
+    currentUser.languageOtpHash = null;
+    currentUser.languageOtpChannel = null;
+    currentUser.languageOtpRequestedAt = null;
+    currentUser.languageOtpExpiry = null;
+    currentUser.languageOtpAttempts = 0;
     await currentUser.save();
 
     return res.status(200).json({
@@ -269,6 +317,7 @@ export const updatePreferredLanguage = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("updatePreferredLanguage error:", error);
     return res.status(500).json({ message: "Something went wrong." });
   }
 };
