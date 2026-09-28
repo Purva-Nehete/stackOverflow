@@ -3,7 +3,15 @@ import { randomInt } from "node:crypto";
 import user from "../models/auth.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { isSupportedLanguage } from "../config/languageRules.js";
+import {
+  getVerificationChannel,
+  isSupportedLanguage,
+  languageRules,
+} from "../config/languageRules.js";
+import {
+  sendLanguageVerificationEmail,
+  sendLanguageVerificationSms,
+} from "../services/email.js";
 
 export const generateRandomPassword = (length = 12) => {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -153,6 +161,86 @@ export const getCurrentUserLanguage = async (req, res) => {
       },
     });
   } catch (error) {
+    return res.status(500).json({ message: "Something went wrong." });
+  }
+};
+
+const createLanguageOtp = () => {
+  return String(randomInt(100000, 1000000)).padStart(languageRules.otp.length, "0");
+};
+
+const setUserLanguageOtp = async ({ userDoc, language, otp, channel }) => {
+  const otpExpiry = new Date(Date.now() + languageRules.otp.expiresInMinutes * 60 * 1000);
+
+  userDoc.pendingLanguageChange = language;
+  userDoc.languageOtpChannel = channel;
+  userDoc.languageOtpRequestedAt = new Date();
+  userDoc.languageOtpExpiry = otpExpiry;
+  userDoc.languageOtpAttempts = 0;
+  userDoc.languageOtpHash = await bcrypt.hash(otp, 10);
+  await userDoc.save();
+};
+
+export const requestLanguageChangeOtp = async (req, res) => {
+  const { preferredLanguage } = req.body || {};
+
+  if (!preferredLanguage || !isSupportedLanguage(preferredLanguage)) {
+    return res.status(400).json({ message: "Unsupported language selected." });
+  }
+
+  try {
+    const currentUser = await user.findById(req.userid);
+
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const channel = getVerificationChannel(preferredLanguage);
+
+    if (!channel) {
+      return res.status(400).json({ message: "Unsupported language selected." });
+    }
+
+    if (channel === "email" && !currentUser.email) {
+      return res.status(400).json({ message: "Email verification unavailable." });
+    }
+
+    if (channel === "mobile" && !currentUser.phone) {
+      return res.status(400).json({ message: "Mobile verification unavailable." });
+    }
+
+    const otp = createLanguageOtp();
+
+    await setUserLanguageOtp({
+      userDoc: currentUser,
+      language: preferredLanguage,
+      otp,
+      channel,
+    });
+
+    if (channel === "email") {
+      await sendLanguageVerificationEmail({
+        email: currentUser.email,
+        otp,
+        language: preferredLanguage,
+      });
+    } else {
+      await sendLanguageVerificationSms({
+        phone: currentUser.phone,
+        otp,
+        language: preferredLanguage,
+      });
+    }
+
+    return res.status(200).json({
+      message: "Verification code sent.",
+      data: {
+        channel,
+        preferredLanguage,
+      },
+    });
+  } catch (error) {
+    console.error("requestLanguageChangeOtp error:", error);
     return res.status(500).json({ message: "Something went wrong." });
   }
 };

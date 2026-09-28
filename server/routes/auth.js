@@ -4,6 +4,7 @@ import {
   getCurrentUserLanguage,
   getallusers,
   Login,
+  requestLanguageChangeOtp,
   Signup,
   updatePreferredLanguage,
   updateprofile,
@@ -15,6 +16,7 @@ router.post("/signup", Signup);
 router.post("/login", Login);
 router.post("/forgot-password", ForgotPassword);
 router.get("/language", auth, getCurrentUserLanguage);
+router.post("/language/request-otp", auth, requestLanguageChangeOtp);
 router.patch("/language", auth, updatePreferredLanguage);
 router.get("/getalluser", getallusers);
 router.patch("/update/:id", auth, updateprofile);

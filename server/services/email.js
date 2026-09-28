@@ -57,3 +57,39 @@ export const sendPaymentConfirmationEmail = async ({
 
   return true;
 };
+
+export const sendLanguageVerificationEmail = async ({ email, otp, language }) => {
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    console.warn(`Language verification email skipped: email service is not configured for ${language}`);
+    return false;
+  }
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: email,
+    subject: `Your language change OTP for ${language}`,
+    text: [
+      "Your language change verification code is below.",
+      "",
+      `Code: ${otp}`,
+      "",
+      "This code expires in 10 minutes.",
+    ].join("\n"),
+  });
+
+  return true;
+};
+
+export const sendLanguageVerificationSms = async ({ phone, otp, language }) => {
+  if (!phone) {
+    return false;
+  }
+
+  console.log(
+    `[SMS OTP] language=${language} to=${phone.replace(/.(?=.{4})/g, "*")} code=${otp}`
+  );
+
+  return true;
+};
