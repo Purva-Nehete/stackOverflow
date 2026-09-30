@@ -101,15 +101,45 @@ export const AuthProvider = ({ children }) => {
         email,
         password,
       });
+      if (res.data?.data?.verificationRequired) {
+        return res.data;
+      }
       const { data, token } = res.data;
       localStorage.setItem("user", JSON.stringify({...data,token}));
       setUser(data);
       setToken(token);
       toast.success("Login Successful");
+      return res.data;
     } catch (error) {
       const msg = error.response?.data.message || "Login failed";
       seterror(msg);
       toast.error(msg);
+      return null;
+    } finally {
+      setloading(false);
+    }
+  };
+  const VerifyLogin = async ({ challengeToken, otp }) => {
+    setloading(true);
+    seterror(null);
+    try {
+      const res = await axiosInstance.post("/user/login/verify", {
+        challengeToken,
+        otp,
+      });
+      const { data, token } = res.data;
+      localStorage.setItem("user", JSON.stringify({...data, token}));
+      setUser(data);
+      setToken(token);
+      toast.success("Login Successful");
+      return res.data;
+    } catch (error) {
+      const msg = error.response?.data.message || "Login verification failed";
+      seterror(msg);
+      toast.error(msg);
+      return null;
+    } finally {
+      setloading(false);
     }
   };
   const Logout = () => {
@@ -129,6 +159,7 @@ export const AuthProvider = ({ children }) => {
         refreshSubscription,
         Signup,
         Login,
+        VerifyLogin,
         Logout,
         updateUser,
         loading,

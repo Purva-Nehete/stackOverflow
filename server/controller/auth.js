@@ -12,6 +12,17 @@ import {
   sendLanguageVerificationEmail,
   sendLanguageVerificationSms,
 } from "../services/email.js";
+import { loginSecurityRules } from "../config/loginSecurity.js";
+import {
+  createAuthenticatedSession,
+  createLoginChallenge,
+  findTrustedDevice,
+  getRequestDevice,
+  readCookie,
+  recordLoginActivity,
+  trustedDeviceCookieName,
+  verifyLoginChallenge,
+} from "../services/loginSecurity.js";
 
 export const generateRandomPassword = (length = 12) => {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -43,7 +54,9 @@ export const Signup = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
-    res.status(200).json({ data: newuser, token });
+    const safeUser = newuser.toObject();
+    delete safeUser.password;
+    res.status(200).json({ data: safeUser, token });
   } catch (error) {
     res.status(500).json("something went wrong..");
     return;
@@ -51,11 +64,12 @@ export const Signup = async (req, res) => {
 };
 
 export const Login = async (req, res) => {
-  const { email, password } = req.body;
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const password = typeof req.body?.password === "string" ? req.body.password : "";
   try {
     const exisitinguser = await user.findOne({ email }).select("+password");
     if (!exisitinguser) {
-      return res.status(404).json({ message: "User does not exist" });
+      return res.status(401).json({ message: loginSecurityRules.errors.invalidCredentials });
     }
 
     const ispasswordcrct = await bcrypt.compare(
@@ -63,17 +77,85 @@ export const Login = async (req, res) => {
       exisitinguser.password
     );
     if (!ispasswordcrct) {
-      return res.status(400).json({ message: "Invalid password" });
+      return res.status(401).json({ message: loginSecurityRules.errors.invalidCredentials });
     }
-    const token = jwt.sign(
-      { email: exisitinguser.email, id: exisitinguser._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-    res.status(200).json({ data: exisitinguser, token });
+
+    const device = getRequestDevice(req);
+    const trustedDevice = await findTrustedDevice({
+      userId: exisitinguser._id,
+      token: readCookie(req, trustedDeviceCookieName),
+    });
+
+    if (!trustedDevice) {
+      const challenge = await createLoginChallenge({ userDocument: exisitinguser, device });
+
+      if (challenge.limited) {
+        return res.status(429).json({
+          message: loginSecurityRules.errors.verificationRequired,
+          retryAfter: challenge.retryAfter,
+        });
+      }
+
+      if (challenge.unavailable) {
+        return res.status(503).json({ message: loginSecurityRules.errors.verificationUnavailable });
+      }
+
+      await recordLoginActivity({
+        userId: exisitinguser._id,
+        device,
+        outcome: "verification_required",
+        isNewDevice: true,
+      });
+
+      return res.status(202).json({
+        message: loginSecurityRules.errors.verificationRequired,
+        data: {
+          verificationRequired: true,
+          challengeToken: challenge.challengeToken,
+          expiresInSeconds: challenge.expiresInSeconds,
+        },
+      });
+    }
+
+    trustedDevice.lastUsedAt = new Date();
+    await trustedDevice.save();
+    const session = await createAuthenticatedSession({
+      userDocument: exisitinguser,
+      device,
+      trustedDeviceId: trustedDevice._id,
+    });
+    await recordLoginActivity({ userId: exisitinguser._id, device, outcome: "success" });
+    return res.status(200).json(session);
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json("something went wrong..");
     return;
+  }
+};
+
+export const verifyLogin = async (req, res) => {
+  const { challengeToken, otp } = req.body || {};
+
+  if (typeof challengeToken !== "string" || typeof otp !== "string") {
+    return res.status(400).json({ message: loginSecurityRules.errors.invalidVerification });
+  }
+
+  try {
+    const result = await verifyLoginChallenge({
+      challengeToken,
+      otp,
+      device: getRequestDevice(req),
+      res,
+    });
+
+    if (result.error) {
+      return res.status(400).json({ message: loginSecurityRules.errors.invalidVerification });
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("verifyLogin error:", error);
+    return res.status(500).json({ message: "Unable to verify login." });
   }
 };
 

@@ -4,6 +4,7 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000
 
 const axiosInstance = axios.create({
   baseURL: backendUrl,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },

@@ -4,6 +4,7 @@ import {
   getCurrentUserLanguage,
   getallusers,
   Login,
+  verifyLogin,
   requestLanguageChangeOtp,
   Signup,
   updatePreferredLanguage,
@@ -14,6 +15,7 @@ const router = express.Router();
 import auth from "../middleware/auth.js";
 router.post("/signup", Signup);
 router.post("/login", Login);
+router.post("/login/verify", verifyLogin);
 router.post("/forgot-password", ForgotPassword);
 router.get("/language", auth, getCurrentUserLanguage);
 router.post("/language/request-otp", auth, requestLanguageChangeOtp);

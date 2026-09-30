@@ -47,6 +47,7 @@ export const loginSecurityRules = Object.freeze({
   errors: Object.freeze({
     invalidCredentials: "Invalid email or password.",
     verificationRequired: "Additional verification is required.",
+    verificationUnavailable: "Login verification is temporarily unavailable.",
     invalidVerification: "The verification code is invalid or expired.",
     sessionUnavailable: "Your session is no longer available.",
   }),

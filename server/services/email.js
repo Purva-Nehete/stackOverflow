@@ -93,3 +93,67 @@ export const sendLanguageVerificationSms = async ({ phone, otp, language }) => {
 
   return true;
 };
+
+export const sendLoginVerificationEmail = async ({
+  email,
+  otp,
+  browser,
+  operatingSystem,
+}) => {
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    console.warn("Login verification email skipped: email service is not configured");
+    return false;
+  }
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: email,
+    subject: "Verify a new login to your account",
+    text: [
+      "A login was attempted from a device we do not recognize.",
+      "",
+      `Device: ${browser} on ${operatingSystem}`,
+      `Verification code: ${otp}`,
+      "",
+      "This code expires in 10 minutes. If you did not try to log in, change your password immediately.",
+    ].join("\n"),
+  });
+
+  return true;
+};
+
+export const sendNewDeviceLoginEmail = async ({
+  email,
+  name,
+  browser,
+  operatingSystem,
+  deviceType,
+  ipAddress,
+}) => {
+  const transporter = getTransporter();
+
+  if (!transporter) {
+    console.warn("New-device login email skipped: email service is not configured");
+    return false;
+  }
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    to: email,
+    subject: "New device signed in to your account",
+    text: [
+      `Hi ${name || "there"},`,
+      "",
+      "A new device signed in to your account.",
+      `Device: ${browser} on ${operatingSystem} (${deviceType})`,
+      `IP address: ${ipAddress}`,
+      `Time: ${new Date().toISOString()}`,
+      "",
+      "If this was not you, revoke the session and change your password.",
+    ].join("\n"),
+  });
+
+  return true;
+};

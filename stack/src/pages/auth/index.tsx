@@ -17,9 +17,11 @@ import { useI18n } from "@/lib/i18n/I18nContext";
 
 const index = () => {
   const router = useRouter();
-  const { Login, loading } = useAuth();
+  const { Login, VerifyLogin, loading } = useAuth();
   const { t } = useI18n();
   const [form, setform] = useState({ email: "", password: "" });
+  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  const [otp, setOtp] = useState("");
   const handleChange = (e: any) => {
     setform({ ...form, [e.target.id]: e.target.value });
   };
@@ -30,10 +32,28 @@ const index = () => {
       return;
     }
     try {
-      await Login(form);
-      router.push("/");
+      const result = await Login(form);
+      if (result?.data?.verificationRequired) {
+        setChallengeToken(result.data.challengeToken);
+        return;
+      }
+      if (result?.token) {
+        router.push("/");
+      }
     } catch (error) {
       console.log(error);
+    }
+  };
+  const handleVerify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!challengeToken || otp.length !== 6) {
+      toast.error(t("common.error"));
+      return;
+    }
+
+    const result = await VerifyLogin({ challengeToken, otp });
+    if (result?.token) {
+      router.push("/");
     }
   };
   return (
@@ -51,7 +71,7 @@ const index = () => {
             </span>
           </Link>
         </div>
-        <form onSubmit={handlesubmit}>
+        <form onSubmit={challengeToken ? handleVerify : handlesubmit}>
           <Card>
             <CardHeader className="space-y-1 text-center">
               <CardTitle className="text-xl lg:text-2xl">
@@ -114,7 +134,7 @@ const index = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {!challengeToken && <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm">
                   {t("auth.email")}
                 </Label>
@@ -125,8 +145,8 @@ const index = () => {
                   onChange={handleChange}
                   value={form.email}
                 />
-              </div>
-              <div className="space-y-2">
+              </div>}
+              {!challengeToken && <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm">
                   {t("auth.password")}
                 </Label>
@@ -136,13 +156,32 @@ const index = () => {
                   onChange={handleChange}
                   value={form.password}
                 />
-              </div>
+              </div>}
+              {challengeToken && (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600">{t("auth.loginVerification")}</p>
+                  <Label htmlFor="login-otp">{t("auth.loginOtp")}</Label>
+                  <Input
+                    id="login-otp"
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                  />
+                </div>
+              )}
               <Button
                 type="submit"
                 className="w-full bg-blue-600 hover:bg-blue-700 text-sm"
               >
-                {loading ? t("common.loading") : t("navigation.login")}
+                {loading ? t("common.loading") : challengeToken ? t("auth.verifyLogin") : t("navigation.login")}
               </Button>
+              {challengeToken && (
+                <Button type="button" variant="outline" className="w-full" onClick={() => setChallengeToken(null)}>
+                  {t("auth.backToLogin")}
+                </Button>
+              )}
               <div className="text-center text-sm">
                 <Link href="/forgot-password" className="text-blue-600 hover:underline">
                   {t("auth.forgotPassword")}
