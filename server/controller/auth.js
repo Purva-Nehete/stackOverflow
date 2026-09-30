@@ -15,6 +15,7 @@ import {
 import { loginSecurityRules } from "../config/loginSecurity.js";
 import {
   createAuthenticatedSession,
+  clearTrustedDeviceCookie,
   createLoginChallenge,
   findTrustedDevice,
   getRequestDevice,
@@ -24,6 +25,8 @@ import {
   verifyLoginChallenge,
 } from "../services/loginSecurity.js";
 import Session from "../models/session.js";
+import TrustedDevice from "../models/trustedDevice.js";
+import { hashSecurityToken } from "../services/securityToken.js";
 
 export const generateRandomPassword = (length = 12) => {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -238,6 +241,66 @@ export const revokeSession = async (req, res) => {
   } catch (error) {
     console.error("revokeSession error:", error);
     return res.status(500).json({ message: "Unable to revoke session." });
+  }
+};
+
+export const listTrustedDevices = async (req, res) => {
+  try {
+    const currentToken = readCookie(req, trustedDeviceCookieName);
+    const currentTokenHash = currentToken ? hashSecurityToken(currentToken) : null;
+    const devices = await TrustedDevice.find({
+      userId: req.userid,
+      status: "active",
+      expiresAt: { $gt: new Date() },
+    })
+      .select("+tokenHash")
+      .sort({ lastUsedAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      data: devices.map((device) => ({
+        id: device._id,
+        browser: device.browser,
+        operatingSystem: device.operatingSystem,
+        deviceType: device.deviceType,
+        createdAt: device.createdAt,
+        lastUsedAt: device.lastUsedAt,
+        expiresAt: device.expiresAt,
+        isCurrent: currentTokenHash === device.tokenHash,
+      })),
+    });
+  } catch (error) {
+    console.error("listTrustedDevices error:", error);
+    return res.status(500).json({ message: "Unable to load trusted devices." });
+  }
+};
+
+export const revokeTrustedDevice = async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid trusted device." });
+  }
+
+  try {
+    const device = await TrustedDevice.findOneAndUpdate(
+      { _id: id, userId: req.userid, status: "active" },
+      { $set: { status: "revoked", revokedAt: new Date() } },
+      { new: true }
+    ).select("+tokenHash");
+
+    if (!device) {
+      return res.status(404).json({ message: "Trusted device not found." });
+    }
+
+    const currentToken = readCookie(req, trustedDeviceCookieName);
+    if (currentToken && device.tokenHash === hashSecurityToken(currentToken)) {
+      clearTrustedDeviceCookie(res);
+    }
+
+    return res.status(200).json({ message: "Trusted device removed.", data: { id: device._id } });
+  } catch (error) {
+    console.error("revokeTrustedDevice error:", error);
+    return res.status(500).json({ message: "Unable to remove trusted device." });
   }
 };
 

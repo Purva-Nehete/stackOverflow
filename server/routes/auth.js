@@ -5,8 +5,10 @@ import {
   getallusers,
   Login,
   listSessions,
+  listTrustedDevices,
   logout,
   revokeSession,
+  revokeTrustedDevice,
   verifyLogin,
   requestLanguageChangeOtp,
   Signup,
@@ -22,6 +24,8 @@ router.post("/login/verify", verifyLogin);
 router.post("/logout", auth, logout);
 router.get("/sessions", auth, listSessions);
 router.delete("/sessions/:id", auth, revokeSession);
+router.get("/trusted-devices", auth, listTrustedDevices);
+router.delete("/trusted-devices/:id", auth, revokeTrustedDevice);
 router.post("/forgot-password", ForgotPassword);
 router.get("/language", auth, getCurrentUserLanguage);
 router.post("/language/request-otp", auth, requestLanguageChangeOtp);
