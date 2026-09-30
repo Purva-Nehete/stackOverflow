@@ -53,7 +53,7 @@ export const Signup = async (req, res) => {
 export const Login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    const exisitinguser = await user.findOne({ email });
+    const exisitinguser = await user.findOne({ email }).select("+password");
     if (!exisitinguser) {
       return res.status(404).json({ message: "User does not exist" });
     }

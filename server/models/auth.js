@@ -21,7 +21,7 @@ const userschema = mongoose.Schema({
   languageOtpAttempts: { type: Number, default: 0, min: 0 },
   languageOtpRequestWindowStartedAt: { type: Date, default: null },
   languageOtpRequestCount: { type: Number, default: 0, min: 0 },
-  password: { type: String, required: true },
+  password: { type: String, required: true, select: false },
   about: { type: String },
   tags: { type: [String] },
   joinDate: { type: Date, default: Date.now },
