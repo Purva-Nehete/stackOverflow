@@ -80,6 +80,34 @@ export const createAuthenticatedSession = async ({ userDocument, device, trusted
   return { token, data: getSafeUser(userDocument) };
 };
 
+export const authenticateSession = async ({ userId, token }) => {
+  const now = new Date();
+  const session = await Session.findOne({
+    userId,
+    tokenHash: hashSecurityToken(token),
+    status: "active",
+    expiresAt: { $gt: now },
+  }).select("+tokenHash");
+
+  if (!session) {
+    return null;
+  }
+
+  const inactivityCutoff = new Date(
+    now.getTime() - loginSecurityRules.session.inactivityMinutes * 60 * 1000
+  );
+
+  if (session.lastActivityAt <= inactivityCutoff) {
+    session.status = "expired";
+    await session.save();
+    return null;
+  }
+
+  session.lastActivityAt = now;
+  await session.save();
+  return session;
+};
+
 export const recordLoginActivity = async ({ userId, device, outcome, isNewDevice = false }) => {
   return LoginActivity.create({
     userId,

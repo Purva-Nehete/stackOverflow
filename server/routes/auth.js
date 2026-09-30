@@ -4,6 +4,9 @@ import {
   getCurrentUserLanguage,
   getallusers,
   Login,
+  listSessions,
+  logout,
+  revokeSession,
   verifyLogin,
   requestLanguageChangeOtp,
   Signup,
@@ -16,6 +19,9 @@ import auth from "../middleware/auth.js";
 router.post("/signup", Signup);
 router.post("/login", Login);
 router.post("/login/verify", verifyLogin);
+router.post("/logout", auth, logout);
+router.get("/sessions", auth, listSessions);
+router.delete("/sessions/:id", auth, revokeSession);
 router.post("/forgot-password", ForgotPassword);
 router.get("/language", auth, getCurrentUserLanguage);
 router.post("/language/request-otp", auth, requestLanguageChangeOtp);

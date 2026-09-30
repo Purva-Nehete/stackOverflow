@@ -142,12 +142,19 @@ export const AuthProvider = ({ children }) => {
       setloading(false);
     }
   };
-  const Logout = () => {
-    setUser(null);
-    setToken(null);
-    setSubscription(null);
-    localStorage.removeItem("user");
-    toast.info("Logged out");
+  const Logout = async () => {
+    try {
+      if (token) {
+        await axiosInstance.post("/user/logout");
+      }
+    } catch {
+    } finally {
+      setUser(null);
+      setToken(null);
+      setSubscription(null);
+      localStorage.removeItem("user");
+      toast.info("Logged out");
+    }
   };
   return (
     <AuthContext.Provider

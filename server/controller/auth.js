@@ -23,6 +23,7 @@ import {
   trustedDeviceCookieName,
   verifyLoginChallenge,
 } from "../services/loginSecurity.js";
+import Session from "../models/session.js";
 
 export const generateRandomPassword = (length = 12) => {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -49,14 +50,15 @@ export const Signup = async (req, res) => {
       phone,
       password: hashpassword,
     });
-    const token = jwt.sign(
-      { email: newuser.email, id: newuser._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-    const safeUser = newuser.toObject();
-    delete safeUser.password;
-    res.status(200).json({ data: safeUser, token });
+    const device = getRequestDevice(req);
+    const session = await createAuthenticatedSession({ userDocument: newuser, device });
+    await recordLoginActivity({
+      userId: newuser._id,
+      device,
+      outcome: "success",
+      isNewDevice: true,
+    });
+    res.status(200).json(session);
   } catch (error) {
     res.status(500).json("something went wrong..");
     return;
@@ -156,6 +158,86 @@ export const verifyLogin = async (req, res) => {
   } catch (error) {
     console.error("verifyLogin error:", error);
     return res.status(500).json({ message: "Unable to verify login." });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    await Session.findOneAndUpdate(
+      { _id: req.sessionId, userId: req.userid, status: "active" },
+      {
+        $set: {
+          status: "revoked",
+          revokedAt: new Date(),
+          revokedReason: "logout",
+        },
+      }
+    );
+    return res.status(200).json({ message: "Logged out successfully." });
+  } catch (error) {
+    console.error("logout error:", error);
+    return res.status(500).json({ message: "Unable to log out." });
+  }
+};
+
+export const listSessions = async (req, res) => {
+  try {
+    const sessions = await Session.find({
+      userId: req.userid,
+      status: "active",
+      expiresAt: { $gt: new Date() },
+    })
+      .sort({ lastActivityAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      data: sessions.map((session) => ({
+        id: session._id,
+        browser: session.browser,
+        operatingSystem: session.operatingSystem,
+        deviceType: session.deviceType,
+        createdAt: session.createdAt,
+        lastActivityAt: session.lastActivityAt,
+        expiresAt: session.expiresAt,
+        isCurrent: String(session._id) === String(req.sessionId),
+      })),
+    });
+  } catch (error) {
+    console.error("listSessions error:", error);
+    return res.status(500).json({ message: "Unable to load sessions." });
+  }
+};
+
+export const revokeSession = async (req, res) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid session." });
+  }
+
+  try {
+    const session = await Session.findOneAndUpdate(
+      { _id: id, userId: req.userid, status: "active" },
+      {
+        $set: {
+          status: "revoked",
+          revokedAt: new Date(),
+          revokedReason: "remote_revocation",
+        },
+      },
+      { new: true }
+    );
+
+    if (!session) {
+      return res.status(404).json({ message: "Session not found." });
+    }
+
+    return res.status(200).json({
+      message: "Session revoked.",
+      data: { id: session._id, isCurrent: String(session._id) === String(req.sessionId) },
+    });
+  } catch (error) {
+    console.error("revokeSession error:", error);
+    return res.status(500).json({ message: "Unable to revoke session." });
   }
 };
 
