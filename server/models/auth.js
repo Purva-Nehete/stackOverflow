@@ -49,5 +49,6 @@ const userschema = mongoose.Schema({
   suspensionReason: { type: String, default: "", trim: true, maxlength: 1000 },
   followersCount: { type: Number, default: 0, min: 0 },
   followingCount: { type: Number, default: 0, min: 0 },
+  reputationBalance: { type: Number, default: 0, min: 0, index: true },
 });
 export default mongoose.model("user", userschema);
