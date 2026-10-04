@@ -188,12 +188,17 @@ export const createLoginChallenge = async ({ userDocument, device }) => {
     });
   }
 
-  const emailSent = await sendLoginVerificationEmail({
-    email: userDocument.email,
-    otp,
-    browser: device.browser,
-    operatingSystem: device.operatingSystem,
-  });
+  let emailSent = false;
+  try {
+    emailSent = await sendLoginVerificationEmail({
+      email: userDocument.email,
+      otp,
+      browser: device.browser,
+      operatingSystem: device.operatingSystem,
+    });
+  } catch (error) {
+    console.error("Login verification email error:", error);
+  }
 
   if (!emailSent) {
     await LoginChallenge.deleteOne({ challengeHash: challenge.tokenHash });
@@ -266,14 +271,18 @@ export const verifyLoginChallenge = async ({ challengeToken, otp, device, res })
   await challenge.save();
   setTrustedDeviceCookie(res, trustedDeviceToken.token);
   await recordLoginActivity({ userId: userDocument._id, device, outcome: "success", isNewDevice: true });
-  await sendNewDeviceLoginEmail({
-    email: userDocument.email,
-    name: userDocument.name,
-    browser: device.browser,
-    operatingSystem: device.operatingSystem,
-    deviceType: device.deviceType,
-    ipAddress: device.ipAddress,
-  });
+  try {
+    await sendNewDeviceLoginEmail({
+      email: userDocument.email,
+      name: userDocument.name,
+      browser: device.browser,
+      operatingSystem: device.operatingSystem,
+      deviceType: device.deviceType,
+      ipAddress: device.ipAddress,
+    });
+  } catch (error) {
+    console.error("New-device login email error:", error);
+  }
 
   return session;
 };
