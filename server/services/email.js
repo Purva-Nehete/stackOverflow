@@ -12,8 +12,8 @@ const getTransporter = () => {
     port: Number(EMAIL_PORT),
     secure: process.env.EMAIL_SECURE === "true",
     auth: {
-      user: EMAIL_USER,
-      pass: EMAIL_PASSWORD,
+      user: EMAIL_USER.trim(),
+      pass: EMAIL_PASSWORD.replace(/\s+/g, ""),
     },
   });
 };
