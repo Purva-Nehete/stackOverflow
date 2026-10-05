@@ -27,6 +27,8 @@ import {
 import Session from "../models/session.js";
 import TrustedDevice from "../models/trustedDevice.js";
 import { hashSecurityToken } from "../services/securityToken.js";
+import { reputationRules } from "../config/reputationRules.js";
+import { recordReputationChange } from "../services/reputationLedger.js";
 
 export const generateRandomPassword = (length = 12) => {
   const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -589,12 +591,33 @@ export const updateprofile = async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(_id)) {
     return res.status(400).json({ message: "User unavailable" });
   }
+  if (String(_id) !== String(req.userid)) {
+    return res.status(403).json({ message: "You can only update your own profile." });
+  }
   try {
     const updateprofile = await user.findByIdAndUpdate(
       _id,
       { $set: { name: name, about: about, tags: tags } },
       { new: true }
     );
+    if (!updateprofile) {
+      return res.status(404).json({ message: "User unavailable" });
+    }
+    const completed =
+      Boolean(updateprofile.name?.trim()) &&
+      Boolean(updateprofile.email?.trim()) &&
+      Boolean(updateprofile.phone?.trim()) &&
+      Boolean(updateprofile.about?.trim()) &&
+      Array.isArray(updateprofile.tags) &&
+      updateprofile.tags.length > 0;
+    if (completed) {
+      await recordReputationChange({
+        userId: updateprofile._id,
+        amount: reputationRules.rewards.completedProfile,
+        eventType: reputationRules.eventTypes.completedProfile,
+        eventKey: `profile:${updateprofile._id}:completed`,
+      });
+    }
     res.status(200).json({ data: updateprofile });
   } catch (error) {
     console.log(error);

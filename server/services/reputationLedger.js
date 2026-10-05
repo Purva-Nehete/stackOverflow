@@ -62,11 +62,14 @@ export const recordReputationChange = async ({
       const account = await user.findById(userId).session(session);
       if (!account) throw new Error("User not found.");
 
+      const currentBalance = Number.isFinite(account.reputationBalance)
+        ? account.reputationBalance
+        : reputationRules.balance.minimum;
       const nextBalance = Math.max(
         reputationRules.balance.minimum,
-        account.reputationBalance + amount
+        currentBalance + amount
       );
-      const appliedAmount = nextBalance - account.reputationBalance;
+      const appliedAmount = nextBalance - currentBalance;
       account.reputationBalance = nextBalance;
       await account.save({ session });
 
@@ -74,7 +77,7 @@ export const recordReputationChange = async ({
         [
           {
             userId,
-            amount: appliedAmount,
+            amount,
             balanceAfter: nextBalance,
             eventType,
             eventKey,

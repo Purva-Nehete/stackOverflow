@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import user from "../models/auth.js";
 import ReputationActivity from "../models/reputationActivity.js";
 import ReputationTransfer from "../models/reputationTransfer.js";
+import question from "../models/question.js";
 import {
   getUtcDayRange,
   validateTransferInput,
@@ -12,6 +13,28 @@ import {
 const objectId = () => new mongoose.Types.ObjectId();
 
 describe("reputation ledger data contracts", () => {
+  it("supports persisted answer votes and accepted-answer state", async () => {
+    const questionDoc = new question({
+      questiontitle: "How?",
+      questionbody: "How does this work?",
+      questiontags: ["javascript"],
+      userid: String(objectId()),
+      answer: [
+        {
+          answerbody: "Like this.",
+          useranswered: "Ada",
+          userid: String(objectId()),
+        },
+      ],
+    });
+
+    await assert.doesNotReject(() => questionDoc.validate());
+    assert.equal(questionDoc.acceptedAnswerId, null);
+    assert.deepEqual(questionDoc.answer[0].upvote, []);
+    assert.deepEqual(questionDoc.answer[0].downvote, []);
+    assert.equal(questionDoc.answer[0].isAccepted, false);
+  });
+
   it("defaults user reputation to zero and exposes the balance constraint", () => {
     const newUser = new user({
       name: "Ada",

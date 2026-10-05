@@ -3,6 +3,8 @@ import Post from "../models/post.js";
 import PostReport from "../models/postReport.js";
 import user from "../models/auth.js";
 import { createNotification } from "../services/notification.js";
+import { reputationRules } from "../config/reputationRules.js";
+import { recordReputationChange } from "../services/reputationLedger.js";
 
 const allowedReasons = new Set([
   "spam",
@@ -180,6 +182,16 @@ export const removePostForModeration = async (req, res) => {
     post.moderationStatus = "removed";
     post.deletedAt = new Date();
     await post.save();
+    if (req.moderatorRole === "admin") {
+      await recordReputationChange({
+        userId: post.authorId,
+        amount: -reputationRules.penalties.administratorRemovedContent,
+        eventType: reputationRules.eventTypes.administratorRemovedContent,
+        eventKey: `post:${post._id}:administrator_removed`,
+        relatedContentId: post._id,
+        actorId: req.userid,
+      });
+    }
 
     await createNotification({
       recipientId: post.authorId,
