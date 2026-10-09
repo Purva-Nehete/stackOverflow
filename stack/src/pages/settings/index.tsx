@@ -31,10 +31,42 @@ type TrustedDevice = {
   isCurrent: boolean;
 };
 
+type ReputationPrivileges = {
+  unrestrictedCommenting: boolean;
+  editCommunityPosts: boolean;
+  voteToCloseQuestions: boolean;
+  reportInappropriateContent: boolean;
+};
+
+type ReputationActivityEntry = {
+  id: string;
+  amount: number;
+  balanceAfter: number;
+  eventType: string;
+  createdAt: string;
+};
+
+type ReputationTransferEntry = {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  amount: number;
+  reason: string;
+  status: string;
+  createdAt: string;
+};
+
+type TransferRecipient = {
+  id: string;
+  name: string;
+  email: string;
+  reputation: number;
+};
+
 const SettingsPage = () => {
   const router = useRouter();
   const { user, updateUser, Logout } = useAuth();
-  const { t, locale, setLocale, formatDate } = useI18n();
+  const { t, locale, setLocale, formatDate, formatNumber } = useI18n();
   const currentLocale = (user?.preferredLanguage as Locale | undefined) || locale;
   const [selectedLocale, setSelectedLocale] = useState<Locale>(currentLocale);
   const [otp, setOtp] = useState("");
@@ -50,6 +82,31 @@ const SettingsPage = () => {
   const [securityLoading, setSecurityLoading] = useState(false);
   const [securityError, setSecurityError] = useState("");
   const [securityActionId, setSecurityActionId] = useState<string | null>(null);
+  const [reputation, setReputation] = useState(0);
+  const [privileges, setPrivileges] = useState<ReputationPrivileges>({
+    unrestrictedCommenting: false,
+    editCommunityPosts: false,
+    voteToCloseQuestions: false,
+    reportInappropriateContent: false,
+  });
+  const [reputationLoading, setReputationLoading] = useState(false);
+  const [reputationError, setReputationError] = useState("");
+  const [activity, setActivity] = useState<ReputationActivityEntry[]>([]);
+  const [activityOffset, setActivityOffset] = useState(0);
+  const [activityHasMore, setActivityHasMore] = useState(false);
+  const [activityLoadingMore, setActivityLoadingMore] = useState(false);
+  const [transfers, setTransfers] = useState<ReputationTransferEntry[]>([]);
+  const [transferOffset, setTransferOffset] = useState(0);
+  const [transferHasMore, setTransferHasMore] = useState(false);
+  const [transferLoadingMore, setTransferLoadingMore] = useState(false);
+  const [allowance, setAllowance] = useState({ transferred: 0, remaining: 0, limit: 100 });
+  const [recipientQuery, setRecipientQuery] = useState("");
+  const [recipients, setRecipients] = useState<TransferRecipient[]>([]);
+  const [receiverId, setReceiverId] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [transferSuccess, setTransferSuccess] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -98,6 +155,77 @@ const SettingsPage = () => {
       cancelled = true;
     };
   }, [user, t]);
+
+  useEffect(() => {
+    if (!user) {
+      return undefined;
+    }
+    let cancelled = false;
+    const loadReputationData = async () => {
+      setReputationLoading(true);
+      setReputationError("");
+      try {
+        const [summaryResponse, activityResponse, transferResponse, allowanceResponse] =
+          await Promise.all([
+            axiosInstance.get("/user/reputation"),
+            axiosInstance.get("/user/reputation/activity", { params: { limit: 10, offset: 0 } }),
+            axiosInstance.get("/user/reputation/transfers", { params: { limit: 10, offset: 0 } }),
+            axiosInstance.get("/user/reputation/transfers/allowance"),
+          ]);
+
+        if (cancelled) return;
+        setReputation(summaryResponse.data?.data?.reputation || 0);
+        setPrivileges(summaryResponse.data?.data?.privileges || {});
+        setActivity(activityResponse.data?.data || []);
+        setActivityOffset(activityResponse.data?.nextOffset || 0);
+        setActivityHasMore(Boolean(activityResponse.data?.hasMore));
+        setTransfers(transferResponse.data?.data || []);
+        setTransferOffset(transferResponse.data?.nextOffset || 0);
+        setTransferHasMore(Boolean(transferResponse.data?.hasMore));
+        setAllowance(
+          allowanceResponse.data?.data || { transferred: 0, remaining: 0, limit: 100 }
+        );
+      } catch (reputationRequestError: any) {
+        if (!cancelled) {
+          setReputationError(reputationRequestError.response?.data?.message || t("common.error"));
+        }
+      } finally {
+        if (!cancelled) {
+          setReputationLoading(false);
+        }
+      }
+    };
+
+    loadReputationData();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, t]);
+
+  useEffect(() => {
+    if (!user || !recipientQuery.trim()) {
+      setRecipients([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await axiosInstance.get("/user/reputation/transfers/recipients", {
+          params: { query: recipientQuery, limit: 8 },
+        });
+        if (!cancelled) {
+          setRecipients(response.data?.data || []);
+        }
+      } catch {
+        if (!cancelled) setRecipients([]);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [recipientQuery, user]);
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -212,6 +340,80 @@ const SettingsPage = () => {
       setSecurityError(revokeError.response?.data?.message || t("common.error"));
     } finally {
       setSecurityActionId(null);
+    }
+  };
+
+  const loadMoreActivity = async () => {
+    if (!activityHasMore) return;
+    setActivityLoadingMore(true);
+    try {
+      const response = await axiosInstance.get("/user/reputation/activity", {
+        params: { limit: 10, offset: activityOffset },
+      });
+      setActivity((current) => [...current, ...(response.data?.data || [])]);
+      setActivityOffset(response.data?.nextOffset || activityOffset);
+      setActivityHasMore(Boolean(response.data?.hasMore));
+    } catch {
+      setReputationError(t("common.error"));
+    } finally {
+      setActivityLoadingMore(false);
+    }
+  };
+
+  const loadMoreTransfers = async () => {
+    if (!transferHasMore) return;
+    setTransferLoadingMore(true);
+    try {
+      const response = await axiosInstance.get("/user/reputation/transfers", {
+        params: { limit: 10, offset: transferOffset },
+      });
+      setTransfers((current) => [...current, ...(response.data?.data || [])]);
+      setTransferOffset(response.data?.nextOffset || transferOffset);
+      setTransferHasMore(Boolean(response.data?.hasMore));
+    } catch {
+      setReputationError(t("common.error"));
+    } finally {
+      setTransferLoadingMore(false);
+    }
+  };
+
+  const submitTransfer = async () => {
+    const amount = Number.parseInt(transferAmount, 10);
+    if (!receiverId || !Number.isInteger(amount) || amount <= 0 || !transferReason.trim()) {
+      setReputationError("Please select a recipient, amount, and reason.");
+      return;
+    }
+    setTransferSubmitting(true);
+    setReputationError("");
+    setTransferSuccess("");
+    try {
+      await axiosInstance.post("/user/reputation/transfers", {
+        receiverId,
+        amount,
+        reason: transferReason.trim(),
+      });
+      setTransferSuccess("Reputation transferred successfully.");
+      setReceiverId("");
+      setRecipientQuery("");
+      setRecipients([]);
+      setTransferAmount("");
+      setTransferReason("");
+
+      const [summaryResponse, transferResponse, allowanceResponse] = await Promise.all([
+        axiosInstance.get("/user/reputation"),
+        axiosInstance.get("/user/reputation/transfers", { params: { limit: 10, offset: 0 } }),
+        axiosInstance.get("/user/reputation/transfers/allowance"),
+      ]);
+      setReputation(summaryResponse.data?.data?.reputation || 0);
+      setPrivileges(summaryResponse.data?.data?.privileges || {});
+      setTransfers(transferResponse.data?.data || []);
+      setTransferOffset(transferResponse.data?.nextOffset || 0);
+      setTransferHasMore(Boolean(transferResponse.data?.hasMore));
+      setAllowance(allowanceResponse.data?.data || allowance);
+    } catch (transferError: any) {
+      setReputationError(transferError.response?.data?.message || t("common.error"));
+    } finally {
+      setTransferSubmitting(false);
     }
   };
 
@@ -388,6 +590,142 @@ const SettingsPage = () => {
               </div>
             ))}
             {securityError ? <p className="text-sm text-red-600">{securityError}</p> : null}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Reputation</CardTitle>
+            <CardDescription>View your reputation, privileges, and transfer allowance.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {reputationLoading ? <p className="text-gray-600">{t("common.loading")}</p> : null}
+            <p className="font-semibold text-gray-900">Total reputation: {formatNumber(reputation)}</p>
+            <p className="text-gray-600">
+              Daily transfer allowance: {formatNumber(allowance.remaining)} remaining of{" "}
+              {formatNumber(allowance.limit)}
+            </p>
+            <p>Comment without restrictions: {privileges.unrestrictedCommenting ? "Unlocked" : "Locked"}</p>
+            <p>Edit community posts: {privileges.editCommunityPosts ? "Unlocked" : "Locked"}</p>
+            <p>Vote to close questions: {privileges.voteToCloseQuestions ? "Unlocked" : "Locked"}</p>
+            <p>Report inappropriate content: {privileges.reportInappropriateContent ? "Unlocked" : "Locked"}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Transfer reputation</CardTitle>
+            <CardDescription>Send reputation points to another user.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Search recipient</label>
+              <Input
+                value={recipientQuery}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setRecipientQuery(next);
+                  setReceiverId("");
+                }}
+                placeholder="Search by name or email"
+              />
+              {recipients.length > 0 ? (
+                <div className="max-h-40 overflow-auto rounded border border-gray-200">
+                  {recipients.map((recipient) => (
+                    <button
+                      key={recipient.id}
+                      type="button"
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                        receiverId === recipient.id ? "bg-blue-50" : ""
+                      }`}
+                      onClick={() => {
+                        setReceiverId(recipient.id);
+                        setRecipientQuery(`${recipient.name} (${recipient.email})`);
+                        setRecipients([]);
+                      }}
+                    >
+                      <p className="font-medium">{recipient.name}</p>
+                      <p className="text-xs text-gray-600">{recipient.email}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Amount</label>
+              <Input
+                value={transferAmount}
+                onChange={(event) => setTransferAmount(event.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder="1 - 50"
+                inputMode="numeric"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Reason</label>
+              <Input
+                value={transferReason}
+                onChange={(event) => setTransferReason(event.target.value)}
+                placeholder="Why are you transferring points?"
+                maxLength={500}
+              />
+            </div>
+
+            <Button type="button" onClick={submitTransfer} disabled={transferSubmitting}>
+              {transferSubmitting ? t("common.processing") : "Transfer reputation"}
+            </Button>
+            {transferSuccess ? <p className="text-sm text-green-600">{transferSuccess}</p> : null}
+            {reputationError ? <p className="text-sm text-red-600">{reputationError}</p> : null}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Reputation activity</CardTitle>
+            <CardDescription>How your reputation was earned or lost.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {activity.length === 0 ? <p className="text-sm text-gray-600">No activity yet.</p> : null}
+            {activity.map((entry) => (
+              <div key={entry.id} className="border-b border-gray-200 pb-3 last:border-0 last:pb-0 text-sm">
+                <p className="font-medium text-gray-900">
+                  {entry.amount > 0 ? `+${entry.amount}` : entry.amount} ({entry.eventType})
+                </p>
+                <p className="text-gray-600">Balance: {formatNumber(entry.balanceAfter)}</p>
+                <p className="text-gray-500">{formatDate(entry.createdAt)}</p>
+              </div>
+            ))}
+            {activityHasMore ? (
+              <Button type="button" variant="outline" onClick={loadMoreActivity} disabled={activityLoadingMore}>
+                {activityLoadingMore ? t("common.loading") : "Load more activity"}
+              </Button>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Transfer history</CardTitle>
+            <CardDescription>Complete history of your sent and received transfers.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {transfers.length === 0 ? <p className="text-sm text-gray-600">No transfers yet.</p> : null}
+            {transfers.map((transfer) => (
+              <div key={transfer.id} className="border-b border-gray-200 pb-3 last:border-0 last:pb-0 text-sm">
+                <p className="font-medium text-gray-900">
+                  {String(transfer.senderId) === String(user?._id) ? "Sent" : "Received"}{" "}
+                  {formatNumber(transfer.amount)} points
+                </p>
+                <p className="text-gray-600">{transfer.reason}</p>
+                <p className="text-gray-500">{formatDate(transfer.createdAt)}</p>
+              </div>
+            ))}
+            {transferHasMore ? (
+              <Button type="button" variant="outline" onClick={loadMoreTransfers} disabled={transferLoadingMore}>
+                {transferLoadingMore ? t("common.loading") : "Load more transfers"}
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       </div>

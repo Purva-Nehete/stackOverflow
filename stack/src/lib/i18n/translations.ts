@@ -3,6 +3,7 @@ import { supportedLocales, type Locale } from "./config";
 export const translations: Record<Locale, Record<string, string>> = {
   en: {
     "common.loading": "Loading...",
+    "common.processing": "Processing...",
     "common.error": "Something went wrong.",
     "common.cancel": "Cancel",
     "common.save": "Save",

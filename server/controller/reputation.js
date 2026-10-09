@@ -29,6 +29,16 @@ const serializeTransfer = (transfer) => ({
   completedAt: transfer.completedAt,
 });
 
+const serializeActivity = (activity) => ({
+  id: activity._id,
+  amount: activity.amount,
+  balanceAfter: activity.balanceAfter,
+  eventType: activity.eventType,
+  relatedContentId: activity.relatedContentId,
+  actorId: activity.actorId,
+  createdAt: activity.createdAt,
+});
+
 export const getReputationSummary = async (req, res) => {
   try {
     const existingUser = await user.findById(req.userid).select("reputationBalance");
@@ -46,6 +56,38 @@ export const getReputationSummary = async (req, res) => {
   } catch (error) {
     console.error("getReputationSummary error:", error);
     return res.status(500).json({ message: "Unable to load reputation." });
+  }
+};
+
+export const getPublicReputationSummary = async (req, res) => {
+  const { userId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: "Invalid user ID." });
+  }
+
+  try {
+    const existingUser = await user
+      .findById(userId)
+      .select("name joinDate reputationBalance");
+    if (!existingUser) return res.status(404).json({ message: "User not found." });
+    const reputation = Number.isFinite(existingUser.reputationBalance)
+      ? existingUser.reputationBalance
+      : reputationRules.balance.minimum;
+
+    return res.status(200).json({
+      data: {
+        user: {
+          id: existingUser._id,
+          name: existingUser.name,
+          joinDate: existingUser.joinDate,
+        },
+        reputation,
+        privileges: getPrivilegeAvailability(reputation),
+      },
+    });
+  } catch (error) {
+    console.error("getPublicReputationSummary error:", error);
+    return res.status(500).json({ message: "Unable to load public reputation." });
   }
 };
 
@@ -82,6 +124,38 @@ export const transferReputation = async (req, res) => {
     }
     console.error("transferReputation error:", error);
     return res.status(500).json({ message: "Unable to transfer reputation." });
+  }
+};
+
+export const listTransferRecipients = async (req, res) => {
+  const query = String(req.query.query || "").trim();
+  const limit = parseLimit(req.query.limit, 10);
+  const filters = { _id: { $ne: req.userid } };
+  if (query) {
+    const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filters.$or = [{ name: pattern }, { email: pattern }];
+  }
+
+  try {
+    const recipients = await user
+      .find(filters)
+      .select("name email reputationBalance")
+      .sort({ name: 1 })
+      .limit(limit)
+      .lean();
+    return res.status(200).json({
+      data: recipients.map((recipient) => ({
+        id: recipient._id,
+        name: recipient.name,
+        email: recipient.email,
+        reputation: Number.isFinite(recipient.reputationBalance)
+          ? recipient.reputationBalance
+          : reputationRules.balance.minimum,
+      })),
+    });
+  } catch (error) {
+    console.error("listTransferRecipients error:", error);
+    return res.status(500).json({ message: "Unable to load transfer recipients." });
   }
 };
 
@@ -126,7 +200,7 @@ export const listReputationActivity = async (req, res) => {
     const hasMore = activity.length > limit;
     const data = hasMore ? activity.slice(0, limit) : activity;
     return res.status(200).json({
-      data,
+      data: data.map(serializeActivity),
       hasMore,
       limit,
       offset,
@@ -135,6 +209,36 @@ export const listReputationActivity = async (req, res) => {
   } catch (error) {
     console.error("listReputationActivity error:", error);
     return res.status(500).json({ message: "Unable to load reputation history." });
+  }
+};
+
+export const listPublicReputationActivity = async (req, res) => {
+  const { userId } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ message: "Invalid user ID." });
+  }
+
+  const limit = parseLimit(req.query.limit);
+  const offset = parseOffset(req.query.offset);
+  try {
+    const activity = await ReputationActivity.find({ userId })
+      .select("amount balanceAfter eventType relatedContentId actorId createdAt")
+      .sort({ createdAt: -1, _id: -1 })
+      .skip(offset)
+      .limit(limit + 1)
+      .lean();
+    const hasMore = activity.length > limit;
+    const data = hasMore ? activity.slice(0, limit) : activity;
+    return res.status(200).json({
+      data: data.map(serializeActivity),
+      hasMore,
+      limit,
+      offset,
+      nextOffset: hasMore ? offset + limit : null,
+    });
+  } catch (error) {
+    console.error("listPublicReputationActivity error:", error);
+    return res.status(500).json({ message: "Unable to load public reputation history." });
   }
 };
 

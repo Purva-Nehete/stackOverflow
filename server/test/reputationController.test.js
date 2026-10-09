@@ -3,9 +3,13 @@ import { describe, it } from "node:test";
 import mongoose from "mongoose";
 import ReputationTransfer from "../models/reputationTransfer.js";
 import ReputationActivity from "../models/reputationActivity.js";
+import user from "../models/auth.js";
 import {
+  getPublicReputationSummary,
   listReputationActivity,
+  listPublicReputationActivity,
   listReputationTransfers,
+  listTransferRecipients,
   transferReputation,
 } from "../controller/reputation.js";
 
@@ -99,6 +103,110 @@ describe("reputation endpoints", () => {
       assert.deepEqual(response.body.data, []);
     } finally {
       ReputationActivity.find = originalActivityFind;
+    }
+  });
+
+  it("returns public reputation summary for a profile", async () => {
+    const originalFindById = user.findById;
+    const targetUserId = objectId();
+    user.findById = () => ({
+      select: async () => ({
+        _id: targetUserId,
+        name: "Ada",
+        joinDate: new Date("2024-01-01T00:00:00.000Z"),
+        reputationBalance: 120,
+      }),
+    });
+
+    try {
+      const response = responseStub();
+      await getPublicReputationSummary({ params: { userId: String(targetUserId) } }, response);
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.body.data.reputation, 120);
+      assert.equal(response.body.data.privileges.unrestrictedCommenting, true);
+      assert.equal(response.body.data.privileges.voteToCloseQuestions, false);
+    } finally {
+      user.findById = originalFindById;
+    }
+  });
+
+  it("returns recipient lookup excluding current user", async () => {
+    const originalFind = user.find;
+    const currentUserId = objectId();
+    const recipientUserId = objectId();
+    user.find = (filter) => {
+      assert.equal(String(filter._id.$ne), String(currentUserId));
+      return {
+        select: () => ({
+          sort: () => ({
+            limit: () => ({
+              lean: async () => [
+                {
+                  _id: recipientUserId,
+                  name: "Grace",
+                  email: "grace@example.com",
+                  reputationBalance: 88,
+                },
+              ],
+            }),
+          }),
+        }),
+      };
+    };
+
+    try {
+      const response = responseStub();
+      await listTransferRecipients(
+        { userid: currentUserId, query: { query: "grace", limit: "5" } },
+        response
+      );
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.body.data.length, 1);
+      assert.equal(String(response.body.data[0].id), String(recipientUserId));
+    } finally {
+      user.find = originalFind;
+    }
+  });
+
+  it("returns public activity feed with pagination shape", async () => {
+    const originalFind = ReputationActivity.find;
+    const targetUserId = objectId();
+    ReputationActivity.find = (filter) => {
+      assert.equal(String(filter.userId), String(targetUserId));
+      return {
+        select: () => ({
+          sort: () => ({
+            skip: () => ({
+              limit: () => ({
+                lean: async () => [
+                  {
+                    _id: objectId(),
+                    amount: 5,
+                    balanceAfter: 55,
+                    eventType: "answer_posted",
+                    relatedContentId: objectId(),
+                    actorId: objectId(),
+                    createdAt: new Date(),
+                  },
+                ],
+              }),
+            }),
+          }),
+        }),
+      };
+    };
+
+    try {
+      const response = responseStub();
+      await listPublicReputationActivity(
+        { params: { userId: String(targetUserId) }, query: { limit: "10", offset: "0" } },
+        response
+      );
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.body.data.length, 1);
+      assert.equal(response.body.data[0].eventType, "answer_posted");
+    } finally {
+      ReputationActivity.find = originalFind;
     }
   });
 });

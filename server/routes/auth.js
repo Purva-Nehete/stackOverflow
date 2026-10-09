@@ -20,9 +20,12 @@ const router = express.Router();
 import auth from "../middleware/auth.js";
 import {
   getDailyTransferAllowance,
+  getPublicReputationSummary,
   getReputationSummary,
+  listPublicReputationActivity,
   listReputationActivity,
   listReputationTransfers,
+  listTransferRecipients,
   transferReputation,
 } from "../controller/reputation.js";
 router.post("/signup", Signup);
@@ -43,5 +46,8 @@ router.get("/reputation", auth, getReputationSummary);
 router.get("/reputation/activity", auth, listReputationActivity);
 router.get("/reputation/transfers", auth, listReputationTransfers);
 router.get("/reputation/transfers/allowance", auth, getDailyTransferAllowance);
+router.get("/reputation/transfers/recipients", auth, listTransferRecipients);
 router.post("/reputation/transfers", auth, transferReputation);
+router.get("/profiles/:userId/reputation", getPublicReputationSummary);
+router.get("/profiles/:userId/reputation/activity", listPublicReputationActivity);
 export default router;

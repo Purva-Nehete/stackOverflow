@@ -42,11 +42,19 @@ const getUserData = (id: string) => {
 };
 const index = () => {
   const { user } = useAuth();
-  const { t, formatDate } = useI18n();
+  const { t, formatDate, formatNumber } = useI18n();
   const router = useRouter();
   const { id } = router.query;
   const [users, setusers] = useState<any>(null);
   const [loading, setloading] = useState(true);
+  const [reputationLoading, setReputationLoading] = useState(true);
+  const [reputationError, setReputationError] = useState("");
+  const [publicReputation, setPublicReputation] = useState<number>(0);
+  const [publicPrivileges, setPublicPrivileges] = useState<Record<string, boolean>>({});
+  const [publicActivity, setPublicActivity] = useState<any[]>([]);
+  const [publicActivityOffset, setPublicActivityOffset] = useState(0);
+  const [publicActivityHasMore, setPublicActivityHasMore] = useState(false);
+  const [publicActivityLoadingMore, setPublicActivityLoadingMore] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: users?.name || "",
@@ -69,6 +77,58 @@ const index = () => {
     };
     fetchuser();
   }, [id]);
+
+  useEffect(() => {
+    if (!id || Array.isArray(id)) {
+      return;
+    }
+    let cancelled = false;
+    const fetchReputation = async () => {
+      setReputationLoading(true);
+      setReputationError("");
+      try {
+        const [summaryResponse, activityResponse] = await Promise.all([
+          axiosInstance.get(`/user/profiles/${id}/reputation`),
+          axiosInstance.get(`/user/profiles/${id}/reputation/activity`, {
+            params: { limit: 10, offset: 0 },
+          }),
+        ]);
+        if (cancelled) return;
+        setPublicReputation(summaryResponse.data?.data?.reputation || 0);
+        setPublicPrivileges(summaryResponse.data?.data?.privileges || {});
+        setPublicActivity(activityResponse.data?.data || []);
+        setPublicActivityOffset(activityResponse.data?.nextOffset || 0);
+        setPublicActivityHasMore(Boolean(activityResponse.data?.hasMore));
+      } catch (error: any) {
+        if (cancelled) return;
+        setReputationError(error.response?.data?.message || t("common.error"));
+      } finally {
+        if (!cancelled) setReputationLoading(false);
+      }
+    };
+
+    fetchReputation();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, t]);
+
+  const loadMorePublicActivity = async () => {
+    if (!id || Array.isArray(id) || !publicActivityHasMore) return;
+    setPublicActivityLoadingMore(true);
+    try {
+      const response = await axiosInstance.get(`/user/profiles/${id}/reputation/activity`, {
+        params: { limit: 10, offset: publicActivityOffset },
+      });
+      setPublicActivity((current) => [...current, ...(response.data?.data || [])]);
+      setPublicActivityOffset(response.data?.nextOffset || publicActivityOffset);
+      setPublicActivityHasMore(Boolean(response.data?.hasMore));
+    } catch (error) {
+      toast.error(t("common.error"));
+    } finally {
+      setPublicActivityLoadingMore(false);
+    }
+  };
   if (loading) {
     return (
       <Mainlayout>
@@ -277,19 +337,8 @@ const index = () => {
             </div>
             <div className="flex flex-wrap items-center space-x-6 text-sm">
               <div className="flex items-center">
-                <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                <span className="font-semibold">5</span>
-                <span className="text-gray-600 ml-1">{t("profile.goldBadges")}</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
-                <span className="font-semibold">23</span>
-                <span className="text-gray-600 ml-1">{t("profile.silverBadges")}</span>
-              </div>
-              <div className="flex items-center">
-                <div className="w-3 h-3 bg-amber-600 rounded-full mr-2"></div>
-                <span className="font-semibold">45</span>
-                <span className="text-gray-600 ml-1">{t("profile.bronzeBadges")}</span>
+                <span className="font-semibold">{formatNumber(publicReputation)}</span>
+                <span className="text-gray-600 ml-1">reputation</span>
               </div>
             </div>
           </div>
@@ -312,6 +361,24 @@ const index = () => {
           <div className="space-y-6">
             <Card>
               <CardHeader>
+                <CardTitle>Community privileges</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-gray-700">
+                {reputationLoading ? <p>{t("common.loading")}</p> : null}
+                {reputationError ? <p className="text-red-600">{reputationError}</p> : null}
+                {!reputationLoading && !reputationError ? (
+                  <>
+                    <p>Commenting without restrictions: {publicPrivileges.unrestrictedCommenting ? "Unlocked" : "Locked"}</p>
+                    <p>Editing community posts: {publicPrivileges.editCommunityPosts ? "Unlocked" : "Locked"}</p>
+                    <p>Voting to close questions: {publicPrivileges.voteToCloseQuestions ? "Unlocked" : "Locked"}</p>
+                    <p>Reporting inappropriate content: {publicPrivileges.reportInappropriateContent ? "Unlocked" : "Locked"}</p>
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>{t("profile.topTags")}</CardTitle>
               </CardHeader>
               <CardContent>
@@ -332,6 +399,37 @@ const index = () => {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Reputation activity</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {reputationLoading ? <p className="text-sm text-gray-600">{t("common.loading")}</p> : null}
+                {!reputationLoading && publicActivity.length === 0 ? (
+                  <p className="text-sm text-gray-600">No reputation activity yet.</p>
+                ) : null}
+                {publicActivity.map((entry) => (
+                  <div key={entry.id} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0 text-sm">
+                    <p className="font-medium text-gray-900">
+                      {entry.amount > 0 ? `+${entry.amount}` : entry.amount} ({entry.eventType})
+                    </p>
+                    <p className="text-gray-600">Balance: {formatNumber(entry.balanceAfter)}</p>
+                    <p className="text-gray-500">{formatDate(entry.createdAt)}</p>
+                  </div>
+                ))}
+                {publicActivityHasMore ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={loadMorePublicActivity}
+                    disabled={publicActivityLoadingMore}
+                  >
+                    {publicActivityLoadingMore ? t("common.loading") : "Load more"}
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           </div>
