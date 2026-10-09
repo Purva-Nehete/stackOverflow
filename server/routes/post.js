@@ -22,6 +22,7 @@ import { reportPost } from "../controller/moderation.js";
 import auth, { optionalAuth } from "../middleware/auth.js";
 import requireActiveUser from "../middleware/requireActiveUser.js";
 import rateLimit from "../middleware/rateLimit.js";
+import requireReputationPrivilege from "../middleware/requireReputationPrivilege.js";
 
 const router = express.Router();
 const postCreationLimit = rateLimit({ max: 10, message: "Post creation limit reached." });
@@ -35,14 +36,35 @@ router.delete("/:id/like", auth, requireActiveUser, interactionLimit, unlikePost
 router.post("/:id/bookmark", auth, requireActiveUser, interactionLimit, bookmarkPost);
 router.delete("/:id/bookmark", auth, requireActiveUser, interactionLimit, removeBookmark);
 router.post("/:id/share", auth, requireActiveUser, interactionLimit, sharePost);
-router.post("/:id/reports", auth, requireActiveUser, reportLimit, reportPost);
-router.post("/:id/comments", auth, requireActiveUser, interactionLimit, createComment);
+router.post(
+  "/:id/reports",
+  auth,
+  requireActiveUser,
+  requireReputationPrivilege("reportInappropriateContent"),
+  reportLimit,
+  reportPost
+);
+router.post(
+  "/:id/comments",
+  auth,
+  requireActiveUser,
+  requireReputationPrivilege("unrestrictedCommenting"),
+  interactionLimit,
+  createComment
+);
 router.get("/:id/comments", optionalAuth, getComments);
 router.post("/comments/:commentId/replies", auth, requireActiveUser, interactionLimit, createReply);
 router.patch("/comments/:commentId", auth, requireActiveUser, interactionLimit, updateComment);
 router.delete("/comments/:commentId", auth, requireActiveUser, interactionLimit, deleteComment);
 router.get("/:id", getPostById);
-router.patch("/:id", auth, requireActiveUser, interactionLimit, updatePost);
+router.patch(
+  "/:id",
+  auth,
+  requireActiveUser,
+  requireReputationPrivilege("editCommunityPosts"),
+  interactionLimit,
+  updatePost
+);
 router.delete("/:id", auth, requireActiveUser, interactionLimit, deletePost);
 
 export default router;

@@ -18,6 +18,13 @@ import {
 
 const router = express.Router();
 import auth from "../middleware/auth.js";
+import {
+  getDailyTransferAllowance,
+  getReputationSummary,
+  listReputationActivity,
+  listReputationTransfers,
+  transferReputation,
+} from "../controller/reputation.js";
 router.post("/signup", Signup);
 router.post("/login", Login);
 router.post("/login/verify", verifyLogin);
@@ -32,4 +39,9 @@ router.post("/language/request-otp", auth, requestLanguageChangeOtp);
 router.patch("/language", auth, updatePreferredLanguage);
 router.get("/getalluser", getallusers);
 router.patch("/update/:id", auth, updateprofile);
+router.get("/reputation", auth, getReputationSummary);
+router.get("/reputation/activity", auth, listReputationActivity);
+router.get("/reputation/transfers", auth, listReputationTransfers);
+router.get("/reputation/transfers/allowance", auth, getDailyTransferAllowance);
+router.post("/reputation/transfers", auth, transferReputation);
 export default router;
