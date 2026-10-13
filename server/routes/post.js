@@ -48,7 +48,6 @@ router.post(
   "/:id/comments",
   auth,
   requireActiveUser,
-  requireReputationPrivilege("unrestrictedCommenting"),
   interactionLimit,
   createComment
 );

@@ -42,6 +42,9 @@ describe("frontend language contracts", () => {
 
     assert.match(settings, /supportedLocales\.map/);
     assert.match(settings, /request-otp/);
+    assert.match(settings, /verificationChannel: resolvedChannel/);
+    assert.match(settings, /setChannel\(next === "fr" \? "email" : "mobile"\)/);
+    assert.match(settings, /settings\.invalidMobile/);
     assert.match(settings, /patch\("\/user\/language"/);
     assert.match(settings, /setLocale\(selectedLocale\)/);
     assert.match(settings, /countdown/);

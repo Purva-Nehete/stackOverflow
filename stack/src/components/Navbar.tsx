@@ -41,7 +41,7 @@ const Navbar = ({ handleslidein }: any) => {
               >
                 {t("navigation.community")}
               </Link>
-              {user ? (
+              {hasMounted && user ? (
                 <Link
                   href="/settings"
                   className="text-sm text-[#454545] font-medium px-4 py-2 rounded hover:bg-gray-200 transition"

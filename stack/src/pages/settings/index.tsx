@@ -71,6 +71,7 @@ const SettingsPage = () => {
   const [selectedLocale, setSelectedLocale] = useState<Locale>(currentLocale);
   const [otp, setOtp] = useState("");
   const [channel, setChannel] = useState<"email" | "mobile" | null>(null);
+  const [phone, setPhone] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -118,6 +119,9 @@ const SettingsPage = () => {
       setSelectedLocale(user.preferredLanguage);
     } else {
       setSelectedLocale(locale);
+    }
+    if (user.phone) {
+      setPhone(user.phone);
     }
   }, [user, locale, router]);
 
@@ -244,6 +248,14 @@ const SettingsPage = () => {
       return;
     }
 
+    if (resolvedChannel === "mobile" && !user?.phone) {
+      const phonePattern = /^\+?[\d\s().-]{7,20}$/;
+      if (!phonePattern.test(phone.trim())) {
+        setError(t("settings.invalidMobile"));
+        return;
+      }
+    }
+
     setIsSending(true);
     setError("");
     setSuccess("");
@@ -251,6 +263,8 @@ const SettingsPage = () => {
     try {
       const response = await axiosInstance.post("/user/language/request-otp", {
         preferredLanguage: selectedLocale,
+        verificationChannel: resolvedChannel,
+        phone: phone.trim() || undefined,
       });
 
       const nextChannel =
@@ -458,6 +472,40 @@ const SettingsPage = () => {
             </div>
 
             {languageChanged && (
+              <>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">{t("settings.verificationMethod")}</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  {(["email", "mobile"] as const).map((method) => (
+                    <label key={method} className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="radio"
+                        name="language-verification-channel"
+                        value={method}
+                        checked={resolvedChannel === method}
+                        onChange={() => setChannel(method)}
+                        disabled={verificationSent}
+                      />
+                      {method === "email" ? t("settings.channelEmail") : t("settings.channelMobile")}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {resolvedChannel === "mobile" && !user?.phone && !verificationSent && (
+                <div className="space-y-2">
+                  <label htmlFor="language-phone" className="text-sm font-medium text-gray-700">
+                    {t("settings.mobileNumber")}
+                  </label>
+                  <Input
+                    id="language-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="+15555550123"
+                    autoComplete="tel"
+                  />
+                </div>
+              )}
               <div className="rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
                 {t("settings.channelInfo")}
                 <span className="font-medium">
@@ -468,6 +516,7 @@ const SettingsPage = () => {
                       : ""}
                 </span>
               </div>
+              </>
             )}
 
             {languageChanged && !verificationSent && (
@@ -584,6 +633,7 @@ const SettingsPage = () => {
                   variant="outline"
                   onClick={() => revokeTrustedDevice(device)}
                   disabled={securityActionId === device.id}
+                  className="text-white hover:text-white disabled:text-white"
                 >
                   {securityActionId === device.id ? t("common.processing") : t("settings.removeDevice")}
                 </Button>

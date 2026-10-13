@@ -420,7 +420,8 @@ const clearLanguageOtp = (userDoc) => {
 };
 
 export const requestLanguageChangeOtp = async (req, res) => {
-  const { preferredLanguage } = req.body || {};
+  const { preferredLanguage, verificationChannel, phone } = req.body || {};
+  const hasExplicitChannel = verificationChannel === "email" || verificationChannel === "mobile";
 
   if (!preferredLanguage || !isSupportedLanguage(preferredLanguage)) {
     return res.status(400).json({ message: "Unsupported language selected." });
@@ -433,10 +434,19 @@ export const requestLanguageChangeOtp = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const channel = getVerificationChannel(preferredLanguage);
+    const channel =
+      hasExplicitChannel
+        ? verificationChannel
+        : getVerificationChannel(preferredLanguage);
 
     if (!channel) {
       return res.status(400).json({ message: "Unsupported language selected." });
+    }
+
+    const requestedPhone = typeof phone === "string" ? phone.trim() : "";
+    const phonePattern = /^\+?[\d\s().-]{7,20}$/;
+    if (channel === "mobile" && !currentUser.phone && !phonePattern.test(requestedPhone)) {
+      return res.status(400).json({ message: "Please provide a valid mobile number." });
     }
 
     const now = Date.now();
@@ -468,7 +478,7 @@ export const requestLanguageChangeOtp = async (req, res) => {
     }
 
     if (channel === "mobile" && !currentUser.phone) {
-      return res.status(400).json({ message: "Mobile verification unavailable." });
+      currentUser.phone = requestedPhone;
     }
 
     const otp = createLanguageOtp();
@@ -482,18 +492,29 @@ export const requestLanguageChangeOtp = async (req, res) => {
     currentUser.languageOtpRequestCount += 1;
     await currentUser.save();
 
-    if (channel === "email") {
-      await sendLanguageVerificationEmail({
-        email: currentUser.email,
-        otp,
-        language: preferredLanguage,
-      });
-    } else {
-      await sendLanguageVerificationSms({
-        phone: currentUser.phone,
-        otp,
-        language: preferredLanguage,
-      });
+    let sent = false;
+    try {
+      if (channel === "email") {
+        sent = await sendLanguageVerificationEmail({
+          email: currentUser.email,
+          otp,
+          language: preferredLanguage,
+        });
+      } else {
+        sent = await sendLanguageVerificationSms({
+          phone: currentUser.phone,
+          otp,
+          language: preferredLanguage,
+        });
+      }
+    } catch (deliveryError) {
+      console.error(`${channel} language verification delivery error:`, deliveryError);
+    }
+
+    if (!sent && hasExplicitChannel) {
+      clearLanguageOtp(currentUser);
+      await currentUser.save();
+      return res.status(503).json({ message: `${channel === "email" ? "Email" : "Mobile"} verification is unavailable.` });
     }
 
     return res.status(200).json({

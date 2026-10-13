@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { languageRules } from "../config/languageRules.js";
 
 const getTransporter = () => {
   const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD } = process.env;
@@ -83,13 +84,41 @@ export const sendLanguageVerificationEmail = async ({ email, otp, language }) =>
 };
 
 export const sendLanguageVerificationSms = async ({ phone, otp, language }) => {
-  if (!phone) {
+  const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER } = process.env;
+
+  if (!phone || !TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
+    if (process.env.NODE_ENV !== "production" && phone) {
+      console.warn(
+        `[SMS OTP development fallback] language=${language} to=${phone.replace(/.(?=.{4})/g, "*")} code=${otp}`
+      );
+      return true;
+    }
+
+    console.error("Language verification SMS is unavailable: configure the Twilio environment variables.");
     return false;
   }
 
-  console.log(
-    `[SMS OTP] language=${language} to=${phone.replace(/.(?=.{4})/g, "*")} code=${otp}`
+  const credentials = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(TWILIO_ACCOUNT_SID)}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        From: TWILIO_FROM_NUMBER,
+        To: phone,
+        Body: `Your language change verification code is ${otp}. It expires in ${languageRules.otp.expiresInMinutes} minutes.`,
+      }),
+    }
   );
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(`SMS provider rejected the request (${response.status}): ${responseText}`);
+  }
 
   return true;
 };

@@ -282,8 +282,8 @@ export default function CommunityPage() {
             <p className="mt-1 max-w-xl text-sm text-slate-500">{t("community.description")}</p>
           </div>
           <div className="relative">
-            <Button variant="outline" size="sm" onClick={loadNotifications} aria-label={t("community.openNotifications")}>
-              <Bell className="h-4 w-4" /> {t("community.notifications")}
+            <Button variant="outline" size="sm" onClick={loadNotifications} aria-label={t("community.openNotifications")} className="border-slate-900 bg-slate-900 text-white hover:bg-slate-800 hover:text-white">
+              <Bell className="h-4 w-4 text-white" /> {t("community.notifications")}
               {unreadCount > 0 && <span className="rounded-full bg-orange-600 px-2 py-0.5 text-xs text-white">{unreadCount}</span>}
             </Button>
             {notificationsOpen && (

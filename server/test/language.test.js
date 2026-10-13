@@ -100,6 +100,61 @@ describe("language OTP verification", () => {
     assert.notEqual(currentUser.languageOtpHash, null);
   });
 
+  it("sends a mobile OTP to a newly supplied phone number", async () => {
+    const currentUser = await languageUser({
+      phone: undefined,
+      languageOtpRequestedAt: null,
+    });
+    user.findById = async () => currentUser;
+
+    const previousEnvironment = {
+      TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID,
+      TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN,
+      TWILIO_FROM_NUMBER: process.env.TWILIO_FROM_NUMBER,
+    };
+    const previousFetch = globalThis.fetch;
+    let request;
+
+    process.env.TWILIO_ACCOUNT_SID = "test-account";
+    process.env.TWILIO_AUTH_TOKEN = "test-token";
+    process.env.TWILIO_FROM_NUMBER = "+15555550000";
+    globalThis.fetch = async (url, options) => {
+      request = { url, options };
+      return { ok: true };
+    };
+
+    try {
+      const response = responseStub();
+      await requestLanguageChangeOtp(
+        {
+          userid: "user-id",
+          body: {
+            preferredLanguage: "en",
+            verificationChannel: "mobile",
+            phone: "+15555550124",
+          },
+        },
+        response
+      );
+
+      assert.equal(response.statusCode, 200);
+      assert.equal(response.body.data.channel, "mobile");
+      assert.equal(currentUser.phone, "+15555550124");
+      assert.match(request.url, /Messages\.json$/);
+      assert.match(request.options.body.get("To"), /^\+15555550124$/);
+      assert.match(request.options.body.get("Body"), /verification code is \d{6}/);
+    } finally {
+      globalThis.fetch = previousFetch;
+      for (const [key, value] of Object.entries(previousEnvironment)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
   it("enforces resend cooldown and hourly request limits", async () => {
     const currentUser = await languageUser({
       languageOtpRequestedAt: new Date(),
