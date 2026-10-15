@@ -1,6 +1,15 @@
 import axios from "axios";
 
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+const configuredBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
+const backendUrl =
+  configuredBackendUrl ||
+  (process.env.NODE_ENV === "development" ? "http://localhost:5000" : null);
+
+if (!backendUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_BACKEND_URL must be configured for non-development builds."
+  );
+}
 
 const axiosInstance = axios.create({
   baseURL: backendUrl,
