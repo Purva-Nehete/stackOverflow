@@ -249,7 +249,7 @@ const SettingsPage = () => {
     }
 
     if (resolvedChannel === "mobile" && !user?.phone) {
-      const phonePattern = /^\+?[\d\s().-]{7,20}$/;
+      const phonePattern = /^\+[1-9]\d{7,14}$/;
       if (!phonePattern.test(phone.trim())) {
         setError(t("settings.invalidMobile"));
         return;
@@ -491,7 +491,7 @@ const SettingsPage = () => {
                   ))}
                 </div>
               </div>
-              {resolvedChannel === "mobile" && !user?.phone && !verificationSent && (
+              {resolvedChannel === "mobile" && !verificationSent && (
                 <div className="space-y-2">
                   <label htmlFor="language-phone" className="text-sm font-medium text-gray-700">
                     {t("settings.mobileNumber")}
@@ -501,7 +501,7 @@ const SettingsPage = () => {
                     type="tel"
                     value={phone}
                     onChange={(event) => setPhone(event.target.value)}
-                    placeholder="+15555550123"
+                    placeholder="+14155550123"
                     autoComplete="tel"
                   />
                 </div>

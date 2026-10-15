@@ -98,6 +98,11 @@ export const sendLanguageVerificationSms = async ({ phone, otp, language }) => {
     return false;
   }
 
+  const e164Pattern = /^\+[1-9]\d{7,14}$/;
+  if (!e164Pattern.test(TWILIO_FROM_NUMBER) || !e164Pattern.test(phone)) {
+    throw new Error("Twilio phone numbers must use E.164 format, for example +14155550123.");
+  }
+
   const credentials = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString("base64");
   const response = await fetch(
     `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(TWILIO_ACCOUNT_SID)}/Messages.json`,
@@ -117,7 +122,13 @@ export const sendLanguageVerificationSms = async ({ phone, otp, language }) => {
 
   if (!response.ok) {
     const responseText = await response.text();
-    throw new Error(`SMS provider rejected the request (${response.status}): ${responseText}`);
+    let providerMessage = responseText;
+    try {
+      providerMessage = JSON.parse(responseText)?.message || responseText;
+    } catch {
+      // Keep the provider response text when it is not JSON.
+    }
+    throw new Error(`SMS provider rejected the request (${response.status}): ${providerMessage}`);
   }
 
   return true;

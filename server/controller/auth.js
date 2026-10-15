@@ -444,9 +444,12 @@ export const requestLanguageChangeOtp = async (req, res) => {
     }
 
     const requestedPhone = typeof phone === "string" ? phone.trim() : "";
-    const phonePattern = /^\+?[\d\s().-]{7,20}$/;
-    if (channel === "mobile" && !currentUser.phone && !phonePattern.test(requestedPhone)) {
-      return res.status(400).json({ message: "Please provide a valid mobile number." });
+    const effectivePhone = requestedPhone || currentUser.phone || "";
+    const phonePattern = /^\+[1-9]\d{7,14}$/;
+    if (channel === "mobile" && !phonePattern.test(effectivePhone)) {
+      return res.status(400).json({
+        message: "Please provide a mobile number in international format, for example +14155550123.",
+      });
     }
 
     const now = Date.now();
@@ -477,7 +480,7 @@ export const requestLanguageChangeOtp = async (req, res) => {
       return res.status(400).json({ message: "Email verification unavailable." });
     }
 
-    if (channel === "mobile" && !currentUser.phone) {
+    if (channel === "mobile" && requestedPhone) {
       currentUser.phone = requestedPhone;
     }
 
@@ -508,13 +511,18 @@ export const requestLanguageChangeOtp = async (req, res) => {
         });
       }
     } catch (deliveryError) {
-      console.error(`${channel} language verification delivery error:`, deliveryError);
+      console.error(`${channel} language verification delivery error:`, deliveryError.message);
     }
 
     if (!sent && hasExplicitChannel) {
       clearLanguageOtp(currentUser);
       await currentUser.save();
-      return res.status(503).json({ message: `${channel === "email" ? "Email" : "Mobile"} verification is unavailable.` });
+      return res.status(503).json({
+        message:
+          channel === "email"
+            ? "Email verification is unavailable."
+            : "Mobile verification could not be sent. Check the server log for the Twilio error.",
+      });
     }
 
     return res.status(200).json({

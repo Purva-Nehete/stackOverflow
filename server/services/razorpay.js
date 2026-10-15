@@ -1,3 +1,4 @@
+import "../config/env.js";
 import Razorpay from "razorpay";
 
 const razorpayMode = process.env.RAZORPAY_MODE || "test";
